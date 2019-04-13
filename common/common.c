@@ -692,7 +692,7 @@ int is_queue_empty(struct Duallist *queue)
  */
 void hashtable_init(struct Hashtable *table, unsigned long size, unsigned long (*hash_func)(void *), int(*equal_func)(void*, void*))
 {
-	//Function: to initial a given hashtable with a given size
+	//Function: to initialize a given hashtable with a given size
 	//Input: Hashtable address, the size of hash table, Hash function, Hash equal function
 	//Output: an Initialized Hashtable with given size, hash function and equal function of hashtable
 	unsigned long i;

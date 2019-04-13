@@ -550,6 +550,10 @@ struct RoadList * sort_road_by_density(struct RoadList *aList)
 ***************************************************************************/
 void build_polygon(struct Polygon ** chosen_polygon, struct Point *aPoint)
 {
+	//Function: 
+	//Input:
+	//Output:
+
   struct PointList *newp;
 
   newp = (struct PointList*)malloc(sizeof(struct PointList));
