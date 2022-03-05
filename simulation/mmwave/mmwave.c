@@ -104,7 +104,7 @@ int main(int argc, char *argv[])
 								update_trans_rate(aRegion);
 								data_exchange_phase(aRegion, BEACON_INTERVAL);
 								//AD_exchange_data(aRegion, BEACON_INTERVAL);
-								if (bi_num%BEACON_NUM ==BEACON_NUM-1) update_vehicle_info(aRegion);
+								if (bi_num%BEACON_NUM == BEACON_NUM-1) update_vehicle_info(aRegion);
 							}
 
 							if (log_data && bi_num%BEACON_NUM ==BEACON_NUM-1) {

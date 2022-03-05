@@ -76,6 +76,10 @@
 #define OUTPUT_MODE_CELL 0
 #define OUTPUT_MODE_INTERVAL 1 
 
+#define CAR_LENGTH 3
+#define SAFE_CAR_GAP 1.0		// the gap between vehicles when then stop
+#define V_MAX 20
+#define DET_TIME 0.5			// the simulation time of every step
 /* the miminum time unit in seconds */
 #define MINIMUM_TIME_UNIT 1
 
@@ -120,13 +124,13 @@ struct Report
 struct Trace
 {
   //Function: a struct to store informarion of  traces
-
   char vName[NAME_LENGTH];
   char type;
   struct Duallist reports;
   struct Item *at;
-
+  
   /*the duration of the trace*/
+  int startCount;
   time_t startAt;
   time_t endAt;
 
@@ -135,7 +139,7 @@ struct Trace
   /* for bus start-> */
   char onRoute[NAME_LENGTH];
   /* <-end */
- 
+
   double maxSpeed;
   double countdown;
   char isHeadingValid;
@@ -145,7 +149,106 @@ struct Trace
   double var1;
   double var2;
   double var3;
+
+  double oldx, oldy, oldangle;
+  int finished;
 };
+
+struct neighbour_car
+{
+	int state; //0: now is not a neighbour, 1: now is a neighbour
+	struct Item *carItem;
+	int index;  
+	int cell_x;
+	int cell_y;
+	int car_id;
+	double v;
+	double dis;
+	double angle;
+	// new variable
+	int known;
+	double TXweight;
+	double RXweight;
+	double SNR;
+	double control_SNR;
+	int packet_num;
+	int data_rate;
+	int beam_index;
+	int scan_beam_index;
+};
+
+
+typedef struct vehicle
+{
+  int id;               // id of the car
+  int handled;                  //  to indicate whether the car has been updated during this time
+  double position, positionNew;	// distance from the head of road before update  
+  double v, vnext;		// the velocity of the vehicle
+  double vmax;		// the max velocity of the vehicle
+  double a;		// the accelration of the vehicle, regard as constant
+  double b;		// the decelration of the vehicle, regard as constant
+  double x;
+  double y;
+  struct Lane *belongLane;
+  struct Path *pathInfo;
+  struct Item *currentRoadItem;
+
+  //varaibles fpr bubble MAC
+  int belongLaneID;
+  int slot_occupied;  //
+  int slot_condition; //0 for no slot occupied, 1 for accessing slots and 2 for occupied already.
+  int* slot_oneHop;
+  int* slot_twoHop;
+  bool isExpansion;
+  bool isQueueing;
+  double commRadius;
+  double dir_x, dir_y;
+  struct Duallist packets;
+  struct Duallist neighbours;
+
+
+  //variables for mmwave simulation
+  double x1;
+  double y1;
+  struct Cell *belongCell;
+  // struct Duallist neighbours;
+  int choice_num;
+  int match_id;
+  int role; //-1 init, 0 listen, 1 scan, 2 communicating
+  int communicate_time;
+  
+  struct Duallist history_neigh;
+  struct Duallist known_neigh;
+  struct Duallist choose_neigh;   //chosen by who
+  struct Duallist real_neigh;
+  int choose_car_id;
+  struct Item *choose_car_Item;  //temporary link
+  struct Item *choice_car;  //choose which car in one round
+
+  int weight;
+  
+  int scan_time;
+  int communicated_num;
+}Vehicle;
+
+typedef struct packet{
+  int slot;
+  int condition;////1:tx & tx   2:access_collison 3. merge_collison
+  struct vehicle* srcVehicle, *dstVehicle;
+  bool isQueueing;
+  // int *slot_used_by_queue;//不要了
+  int *slot_resource_oneHop_snapShot;
+}Packet;
+
+typedef struct collision{
+  int type; //1:tx & tx   2:access_collison 3. merge_collison
+  int slot;
+  struct vehicle *src, *dst;
+  int *src_oneHop;
+  int *dst_oneHop;
+  int *two_oneHop;
+  int *two_oneHop;
+}Collision;
 
 void report_init_func(struct Report *aRep);
 void report_free_func(struct Report *aRep);

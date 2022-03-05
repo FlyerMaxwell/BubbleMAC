@@ -34,7 +34,7 @@ int init_simulation(struct Region *region)
 	return 0;
 }
 
-int generate_car_old(struct Region *region) 
+int generate_car_old(struct Region *region, unordered_map<int, vehicle*>& allCars) 
 {
   double xmin,ymin,xmax,ymax, x, y;
   int flag, i, j, k, l;
@@ -71,6 +71,8 @@ int generate_car_old(struct Region *region)
 		duallist_init(&new_car->neighbours);
 		duallist_init(&new_car->real_neigh);
 		duallist_init(&new_car->known_neigh);
+
+		
 //if (learning_cycle_num==2) printf("0.1\n");
 		flag = false;		
 		for(i = 0; i<region->hCells; i++){       
@@ -163,7 +165,7 @@ int generate_car_old(struct Region *region)
  
   return 0;
 }
-int generate_car(struct Region *region, unordered_map<int, vehicle*>& allCars) 		//new generate_car modified by hfc
+int generate_car(struct Region *region) 		//new generate_car modified by hfc
 {
 	double xmin,ymin,xmax,ymax, x, y;
 	int flag, i, j, k, l;
@@ -191,11 +193,13 @@ int generate_car(struct Region *region, unordered_map<int, vehicle*>& allCars) 	
 		fscanf(carinfo, "%d", &new_car->id);
 		fscanf(carinfo, "%lf", &new_car->x);
 		fscanf(carinfo, "%lf", &new_car->y);
-		fscanf(carinfo, "%lf", &new_car->x1);
-		fscanf(carinfo, "%lf", &new_car->y1);
-		fscanf(carinfo, "%lf", &new_car->v);
-		fscanf(carinfo, "%lf", &new_car->belongLane);
-		allCars[new_car->id] = new_car;
+		fscanf(carinfo, "%lf", &new_car->a);
+		fscanf(carinfo, "%lf", &new_car->b);
+		fscanf(carinfo, "%lf", &new_car->v);		
+		fscanf(carinfo, "%lf", &new_car->belongLaneID);
+		fscanf(carinfo, "%lf", &new_car->dir_x);
+		fscanf(carinfo, "%lf", &new_car->dir_y);
+
 		new_car->handled = 2;
 		duallist_init(&new_car->history_neigh);
 		duallist_init(&new_car->choose_neigh);
@@ -215,7 +219,7 @@ int generate_car(struct Region *region, unordered_map<int, vehicle*>& allCars) 	
 			if (flag==true) break;
 		}
 		new_car->belongCell = aCell;
-		
+		allCars[new_car->id] = new_car;	//*************************modified by hfc
 		flag = false;
 		for(i = 0; i<region->hCells; i++){       
 			for(j = 0; j<region->vCells;j++) {
@@ -234,8 +238,6 @@ int generate_car(struct Region *region, unordered_map<int, vehicle*>& allCars) 	
 		if (flag == true) {
 			bCar->x = new_car->x;
 			bCar->y = new_car->y;
-			bCar->x1 = new_car->x1;
-			bCar->y1 = new_car->y1;
 			bCar->v = new_car->v;
 			bCar->belongCell = new_car->belongCell;
 			bCar->handled = 1;
@@ -740,3 +742,38 @@ int car_legal(struct Region *region, struct vehicle *aCar, struct Cell *aCell)
 }
 
 
+double safeDistance(const struct vehicle* v1, const struct vehicle* v2){
+	if(v2 == NULL){
+		return ((v1->v * v1->v))/(2 * v1->b));
+	}
+	return ((v1->v * v1->v) - (v2->v * v2->v))/(2 * v1->b));
+}
+
+double vehicleDistance(const struct vehicle* v1, const struct vehicle* v2){
+	double x = v1->x - v2->x, y = v1->y - v2->y;
+	return sqrt(x*x + y*y);
+}
+
+bool curInFront(const struct vehicle* cur, const struct vehicle* tar){
+	return ((cur->x - tar->x) * cur->dir_x > 0) || ((cur->x - tar->x) * cur->dir_x == 0) && (cur->y - tar->y) * cur->dir_y > 0))
+}
+
+int randSlot(int* occupied, int div = 0){
+	int len = 0;
+	unodered_map<int, int> tab;
+	for(int i = 0; i < SlotPerFrame; i++){
+		if(occupied[i] == -1){
+			tab[len++] = i;
+		}
+	}
+	if (div = -1){					//取后一半可用槽
+		len >>= 1;
+		ret = tab[len + rand()%len];
+	}
+	else{
+		len >>= div;
+		ret = tab[rand()%len];
+	}
+	tab.clear();
+	return ret;
+}

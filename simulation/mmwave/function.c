@@ -307,7 +307,7 @@ int handle_neighbour(struct Region *region) //need to be changed;
 	struct neighbour_car *bneigh, *aNeigh, *tNeigh;
 	int x, y, i, j;
 
-
+//hfc
 	for(i = 0; i<region->hCells; i++){       
 		for(j = 0; j<region->vCells;j++) {
 			aCell = region->mesh + i*region->vCells + j;
