@@ -60,6 +60,7 @@ int main( int   argc,
 	printf("Usage: %s [-time  trainingEndAt exprStartAt exprEndAt] [-oracle type{epidemic, markov, avgdly, avgprb, bubble, simbet, zoom, futureContacts, globalSocial}] [-forward style{no_replica, better, everbest}] [-genarator startAt PoissonMean(sec) numPkgs selectPolicy(friends, strangers, random)] [-node buffersize] [-packet size TTL] [-r randseed] [-v1 mkvOrder T meeting_temporal_gran(sec) useDefault] [-v2 neighbor_threshold(times)] [-v3 alfar beta([0,1])] [-v4 lastT deltaT(hours) tuner] [-v5 socialRatio checkWindowSize] [-v6 .simi .betw] [-w0 dump_interval(hours)] [-w1 pkgdump] [-w2 deliverydump] [-w3 trafficdump] [-w4 memdump] [-w5 cnt_dump] [-w6 neighbor_dump] [-w7 shortestPath_dump] [-w8 utility_dump] [-l pair_list_file] [.cont ...]\n", argv[0]);//pair_list指的是关心的车辆，避免遍历整个大链表最后是contact相遇文件
 	exit(1);//-time 设置训练集时间；上帝类型；传递准则；buffer的大小
   }
+
   while(argv[1]!=NULL && argv[1][0] == '-') {
 	switch(argv[1][1]) {
 	case 't':
@@ -241,10 +242,6 @@ int main( int   argc,
   }
 
 
-
-
-
-
   /* setting up nodes */
   if (pairlistfile && (fsource=fopen(pairlistfile, "r"))!=NULL) {//配置node
 	  while(fgets(buf, 1024, fsource)) {
@@ -267,7 +264,7 @@ int main( int   argc,
 
 
 
-	  /* remove extra contacts between other nodes not included in vnodes */
+/* remove extra contacts between other nodes not included in vnodes */
 	  shrink_cntTable(&aSim->cntTable, &aSim->vnodes);
   } else
 	  setup_vehicular_nodes_by_pairs(&aSim->cntTable, &aSim->vnodes, aSim->bufSize);

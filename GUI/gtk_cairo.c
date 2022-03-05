@@ -7,7 +7,6 @@
 #include "gtk_cairo.h"
 #include "contact.h"
 #include "graph.h"
-
 /*
 *
 *  Gdk drawing operations.
@@ -360,6 +359,9 @@ void draw_canvas(struct ScreenContext *screenContext)
 
 	/* draw crosses */
 	draw_crosses(screenContext);
+  
+        /* draw trafficlights */
+        draw_trafficlights(screenContext);
 
 	draw_dynamic_on_screen(screenContext);
 }
@@ -960,12 +962,12 @@ void draw_roads(struct ScreenContext *screenContext)
 
 void draw_single_road(struct ScreenContext *screenContext, cairo_t *cr, struct Road *aRoad, struct RGBO *fillColor)
 {
-	struct Item *p;
-	struct Point point, mp;
-	double width, wRoad;
+	struct Item *p, *q;
+	struct Point point, mp, rpoint;
+	double width, wRoad, wLane;
 	struct Color lineColor;
 	double dist, d, angle;
-
+        
 	width = aRoad->width/screenContext->meterperpixel;
 	if(width < 1) 
 		wRoad =1;
@@ -1030,7 +1032,33 @@ void draw_single_road(struct ScreenContext *screenContext, cairo_t *cr, struct R
 	cairo_set_line_width(cr, wRoad);
 	cairo_set_source_rgba(cr, fillColor->red/255.0, fillColor->green/255.0, fillColor->blue/255.0, fillColor->opacity/255.0);
 	cairo_stroke(cr);
-			
+	
+        /***********************************************draw lane_lines of the road***********************************************/
+        int flag = 1;
+        q = aRoad->lane_lines.head;
+        while(q!=NULL){
+        p = ((struct Lane_line*)q->datap)->Points.head;
+        //gps_to_canvas(&screenContext->awin, ((struct Point*)p->datap)->x, ((struct Point*)p->datap)->y, &point.x, &point.y);
+	//   cairo_move_to(cr, point.x-screenContext->scr_x, point.y-screenContext->scr_y);
+	//p = p->next;
+	while(p!=NULL) {
+		gps_to_canvas(&screenContext->awin, ((struct Point*)p->datap)->x, ((struct Point*)p->datap)->y, &point.x, &point.y);
+                if (flag == 1){
+                    cairo_move_to(cr, point.x-screenContext->scr_x, point.y-screenContext->scr_y);
+                }
+                else {
+		    cairo_line_to(cr, point.x-screenContext->scr_x, point.y-screenContext->scr_y);
+                }
+		p = p->next;
+                flag = 1-flag;
+	}
+	cairo_set_line_width(cr, 1);
+	cairo_set_source_rgb(cr, lineColor.red, lineColor.green, lineColor.blue);
+	cairo_stroke(cr);
+        q = q->next;  
+        }
+        /***********************************************draw lane_lines of the road***********************************************/
+
 	if (screenContext->debug) {
 		p = aRoad->points.head;
 		gps_to_canvas(&screenContext->awin, ((struct Point*)p->datap)->x, ((struct Point*)p->datap)->y, &point.x, &point.y);
@@ -1058,6 +1086,137 @@ void draw_single_road(struct ScreenContext *screenContext, cairo_t *cr, struct R
 		cairo_line_to(cr, mp.x-cos(M_PI*angle/180)*MARK_LENGTH/2-screenContext->scr_x, mp.y+sin(M_PI*angle/180)*MARK_LENGTH/2-screenContext->scr_y);
 		cairo_stroke(cr);
 	}
+
+        /**********************************************paint the cross***********************************************/
+        /*if (aRoad->headEnd != NULL){
+           point.x = ((struct Point*)(aRoad->points.head->datap))->x;
+           point.y = ((struct Point*)(aRoad->points.head->datap))->y;
+           gps_to_canvas(&screenContext->awin, point.x, point.y, &rpoint.x, &rpoint.y);
+           cairo_move_to(cr, rpoint.x-screenContext->scr_x, rpoint.y-screenContext->scr_y);
+
+           point.x = aRoad->headPoint.x;
+	   point.y = aRoad->headPoint.y;
+
+           gps_to_canvas(&screenContext->awin, point.x, point.y, &rpoint.x, &rpoint.y);
+           cairo_line_to(cr, rpoint.x-screenContext->scr_x, rpoint.y-screenContext->scr_y);
+           cairo_set_line_width(cr, wRoad+5);
+	   cairo_set_source_rgb(cr, lineColor.red, lineColor.green, lineColor.blue);
+	   cairo_stroke(cr);
+        }
+        if (aRoad->tailEnd != NULL){
+
+           point.x = ((struct Point*)(aRoad->points.head->prev->datap))->x;
+           point.y = ((struct Point*)(aRoad->points.head->prev->datap))->y;
+           gps_to_canvas(&screenContext->awin, point.x, point.y, &rpoint.x, &rpoint.y);
+           cairo_move_to(cr, rpoint.x-screenContext->scr_x, rpoint.y-screenContext->scr_y);
+
+           point.x = aRoad->tailPoint.x;
+	   point.y = aRoad->tailPoint.y;
+
+           gps_to_canvas(&screenContext->awin, point.x, point.y, &rpoint.x, &rpoint.y);
+           cairo_line_to(cr, rpoint.x-screenContext->scr_x, rpoint.y-screenContext->scr_y);
+           cairo_set_line_width(cr, wRoad+5);
+	   cairo_set_source_rgb(cr, lineColor.red, lineColor.green, lineColor.blue);
+	   cairo_stroke(cr);
+        }*/
+        /**********************************************paint the cross***********************************************/
+}
+
+void draw_trafficlights(struct ScreenContext *screenContext){
+	struct Item *anEntry;
+  	struct Color light_red, light_green, light_yellow;
+        light_red.red = 255/255.0;
+        light_red.green = 0/255.0;
+        light_red.blue = 0/255.0;
+        light_yellow.red = 255/255.0;
+        light_yellow.green = 255/255.0;
+        light_yellow.blue = 0/255.0;
+        light_green.red = 0/255.0;
+        light_green.green = 255/255.0;
+        light_green.blue = 0/255.0;
+
+	cairo_set_line_join(screenContext->cr_on_canvas, CAIRO_LINE_JOIN_ROUND);
+	cairo_set_line_cap(screenContext->cr_on_canvas, CAIRO_LINE_CAP_BUTT);
+
+	anEntry = screenContext->roads.head;
+	while(anEntry != NULL) {
+	      draw_single_trafficlight(screenContext, screenContext->cr_on_canvas, anEntry->datap, light_red, light_green, light_yellow);
+	      anEntry = anEntry->next;
+	}    
+}
+
+void draw_single_trafficlight(struct ScreenContext *screenContext, cairo_t *cr, struct Road *aRoad, struct Color light_red, struct Color light_green, struct Color light_yellow)
+{
+    double dist = distance_in_latitude(aRoad->width), width;
+    struct Point point, rpoint;
+    
+    width = aRoad->width/screenContext->meterperpixel;
+    
+    if (aRoad->tailEnd != NULL){
+       point.x = aRoad->tailPoint.x+dist*sin(M_PI*aRoad->tailEndAngle/180)/2;
+       point.y = aRoad->tailPoint.y-dist*cos(M_PI*aRoad->tailEndAngle/180)/2;
+       
+       //draw right light
+       gps_to_canvas(&screenContext->awin, point.x, point.y, &rpoint.x, &rpoint.y);
+       cairo_move_to(cr, rpoint.x-screenContext->scr_x, rpoint.y-screenContext->scr_y);
+       point.x = point.x-dist*sin(M_PI*aRoad->tailEndAngle/180)/3;
+       point.y = point.y+dist*cos(M_PI*aRoad->tailEndAngle/180)/3;
+       gps_to_canvas(&screenContext->awin, point.x, point.y, &rpoint.x, &rpoint.y);
+       cairo_line_to(cr, rpoint.x-screenContext->scr_x, rpoint.y-screenContext->scr_y);
+       cairo_set_line_width(cr, 0.1*width);
+       switch(aRoad->lights[2].state){
+           case 0:
+              cairo_set_source_rgb(cr, light_green.red, light_green.green, light_green.blue);
+              break;
+           case 1:
+              cairo_set_source_rgb(cr, light_yellow.red, light_yellow.green, light_yellow.blue);
+              break;
+           case 2:
+              cairo_set_source_rgb(cr, light_red.red, light_red.green, light_red.blue);
+              break; 
+       }
+       cairo_stroke(cr);
+       
+       //draw middle light
+       cairo_move_to(cr, rpoint.x-screenContext->scr_x, rpoint.y-screenContext->scr_y);
+       point.x = point.x-dist*sin(M_PI*aRoad->tailEndAngle/180)/3;
+       point.y = point.y+dist*cos(M_PI*aRoad->tailEndAngle/180)/3;
+       gps_to_canvas(&screenContext->awin, point.x, point.y, &rpoint.x, &rpoint.y);
+       cairo_line_to(cr, rpoint.x-screenContext->scr_x, rpoint.y-screenContext->scr_y);
+       cairo_set_line_width(cr, 0.1*width);
+       switch(aRoad->lights[1].state){
+           case 0:
+              cairo_set_source_rgb(cr, light_green.red, light_green.green, light_green.blue);
+              break;
+           case 1:
+              cairo_set_source_rgb(cr, light_yellow.red, light_yellow.green, light_yellow.blue);
+              break;
+           case 2:
+              cairo_set_source_rgb(cr, light_red.red, light_red.green, light_red.blue);
+              break; 
+       }
+       cairo_stroke(cr);
+
+       //draw left light
+       cairo_move_to(cr, rpoint.x-screenContext->scr_x, rpoint.y-screenContext->scr_y);
+       point.x = point.x-dist*sin(M_PI*aRoad->tailEndAngle/180)/3;
+       point.y = point.y+dist*cos(M_PI*aRoad->tailEndAngle/180)/3;
+       gps_to_canvas(&screenContext->awin, point.x, point.y, &rpoint.x, &rpoint.y);
+       cairo_line_to(cr, rpoint.x-screenContext->scr_x, rpoint.y-screenContext->scr_y);
+       cairo_set_line_width(cr, 0.1*width);
+       switch(aRoad->lights[0].state){
+           case 0:
+              cairo_set_source_rgb(cr, light_green.red, light_green.green, light_green.blue);
+              break;
+           case 1:
+              cairo_set_source_rgb(cr, light_yellow.red, light_yellow.green, light_yellow.blue);
+              break;
+           case 2:
+              cairo_set_source_rgb(cr, light_red.red, light_red.green, light_red.blue);
+              break; 
+       }
+       cairo_stroke(cr);
+    }
 }
 
 
@@ -1105,8 +1264,38 @@ void draw_crosses(struct ScreenContext *screenContext)
 
 void draw_single_cross(struct ScreenContext *screenContext, cairo_t *cr, struct Cross *aCross, struct RGBO *color)
 {
-	struct Point point;
+	struct Point point, *aPoint;
+	struct Item *pointItem;
+	struct Color fillColor;
+	fillColor.red =0/255.0;
+	fillColor.green =0/255.0;
+	fillColor.blue =0/255.0;
 
+	/****************************paint cross***********************/
+	pointItem = aCross->points.head;
+	if (pointItem != NULL){
+	aPoint = (struct Point*)pointItem->datap;
+	//printf("%lf %lf\n",aPoint->x,aPoint->y);
+	gps_to_canvas(&screenContext->awin, aPoint->x, aPoint->y, &point.x, &point.y);
+	cairo_move_to(cr, point.x-screenContext->scr_x, point.y-screenContext->scr_y);
+	pointItem = pointItem->next;
+	while (pointItem != NULL){
+		aPoint = (struct Point*)pointItem->datap;
+		gps_to_canvas(&screenContext->awin, aPoint->x, aPoint->y, &point.x, &point.y);
+		cairo_line_to(cr, point.x-screenContext->scr_x, point.y-screenContext->scr_y);
+		pointItem = pointItem->next;
+	}//while
+	pointItem = aCross->points.head;
+	aPoint = (struct Point*)pointItem->datap;
+	gps_to_canvas(&screenContext->awin, aPoint->x, aPoint->y, &point.x, &point.y);
+	cairo_line_to(cr, point.x-screenContext->scr_x, point.y-screenContext->scr_y);
+	cairo_set_source_rgb(cr, fillColor.red, fillColor.green, fillColor.blue);
+	cairo_set_line_width(cr, 1);
+	cairo_fill(cr);
+	}//if
+	/****************************paint cross***********************/
+
+	//printf("%lf %lf %lf %lf\n",aCross->box.xmin,aCross->box.xmax,aCross->box.ymin,aCross->box.ymax);
 	gps_to_canvas(&screenContext->awin, aCross->box.xmin, aCross->box.ymin, &point.x, &point.y);
 	cairo_move_to(cr, (int)point.x-screenContext->scr_x, (int)point.y-screenContext->scr_y);
 	gps_to_canvas(&screenContext->awin, aCross->box.xmin, aCross->box.ymax, &point.x, &point.y);

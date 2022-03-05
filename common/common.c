@@ -215,6 +215,27 @@ struct Item* duallist_add_in_sequence_from_tail(struct Duallist *duallist, void*
 	return newp;
 }
 
+struct Item* duallist_add_before_item(struct Duallist *duallist, struct Item *fItem, struct Item *lItem, void *data)
+{
+	struct Item *theItem;
+	
+	if (fItem->next == NULL) {
+		theItem = duallist_add_to_head(duallist, data);
+		return theItem;
+	}
+
+	theItem = (struct Item*)malloc(sizeof(struct Item));
+	theItem->datap = data;	
+
+	fItem->next = theItem;
+	theItem->next = lItem;
+	theItem->prev = fItem;
+	lItem->prev = theItem;
+
+	duallist->nItems ++;
+	return theItem;
+}
+
 /*
  * Find the location of an item in a duallist
  */
@@ -373,6 +394,9 @@ int is_duallist_empty(struct Duallist *duallist)
 
 void duallist_destroy(struct Duallist *duallist, void (*free_func)(void*))
 {
+	//Function: To destroy a duallist
+	//Input: (1)address of a duallist (2)address of free function
+	//Output:
 	void *datap;
 
 	if(duallist == NULL) {
@@ -872,6 +896,10 @@ struct Item* hashtable_find(struct Hashtable *table, void*key)
 
 void* hashtable_pick(struct Hashtable *table, void*key)
 {
+	//？
+	//Function:to delete a element in hashtable
+	//Input: (1)address of a hashtable (2)address of a key
+	//Output:
 	unsigned long index;
 	struct Item *pItem;
 	void *rt;
@@ -879,7 +907,7 @@ void* hashtable_pick(struct Hashtable *table, void*key)
 	if(table == NULL) {
 		return NULL;
 	}
-	index = table->hash_func(key)%table->size;
+	index = table->hash_func(key)%table->size;//The index of given key
 	if((table->head)[index] == NULL) {
 	    	return NULL;
 	} else {
@@ -900,7 +928,7 @@ void* hashtable_pick(struct Hashtable *table, void*key)
 						table->head[index]->prev = pItem->prev;	
 				}
 				rt = pItem->datap;
-				free(pItem);
+				free(pItem);//delete
 				table->count --;
 				return rt;
 			}

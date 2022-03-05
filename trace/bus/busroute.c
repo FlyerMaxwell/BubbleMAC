@@ -241,7 +241,7 @@ void load_stop_with_hashtable(FILE *fstop, struct Region *aRegion, struct Hashta
 
 void setup_routes_and_stops(struct Hashtable *routes, struct Hashtable *stops)
 {
-	int id;
+	long id;
   	char *name;
 	unsigned int i;
 	struct Item *aItem, *bItem, *cItem;
@@ -258,7 +258,7 @@ void setup_routes_and_stops(struct Hashtable *routes, struct Hashtable *stops)
 			aRoute = (struct Busroute*)aItem->datap;
 			bItem = aRoute->stops.head;
 			while(bItem != NULL) {
-				id = (int)bItem->datap;
+				id = (long)bItem->datap;
 				if((cItem = hashtable_find(stops,&id))!=NULL) 
 					bItem->datap = cItem->datap;
 				bItem = bItem->next;

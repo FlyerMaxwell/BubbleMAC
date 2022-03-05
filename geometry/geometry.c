@@ -52,6 +52,7 @@ struct Region* build_geographical_region(char *districtFile, char *riverFile, ch
 		read_all_road_records(froad, froadAttr, region);
 		fclose(froad);
 	}
+
 	return region;
 }
 
@@ -61,6 +62,7 @@ void read_all_road_records(FILE *froad, FILE *froadAttr, struct Region *region)
 	char buf[128], *strp;
 	struct Box box;
 	int aint, i, inRegion;
+        int lane_num = DEFAULT_LANE_NUM;
 
 	fseek(froad, 100, SEEK_SET);
 	if (froadAttr != NULL)
@@ -89,12 +91,14 @@ void read_all_road_records(FILE *froad, FILE *froadAttr, struct Region *region)
 			//	strp = strtok(buf, "\t");
 			//	strncpy(rcd.lable, strp, strlen(strp)+1);
 				strp = strtok(buf, "\t");
+				printf("%s\n", strp);
 			//	rcd.width = atoi(strp);
 				strp = strtok(NULL, "\t");
+				printf("%s\n", strp);
 				rcd.direction = atoi(strp);
 			}
 		}
-  
+ 
 		/* select a record whether within a given chosen_polygon */
 		box.xmin = rcd.apolyline.box[0], box.ymin = rcd.apolyline.box[1];
 		box.xmax = rcd.apolyline.box[2], box.ymax = rcd.apolyline.box[3];
@@ -107,7 +111,7 @@ void read_all_road_records(FILE *froad, FILE *froadAttr, struct Region *region)
 				}
 			}
 			if(inRegion){
-				add_road_rcd_to_region(&rcd, region);
+				add_road_rcd_to_region(&rcd, region, lane_num);
 			}
 		}
 		free(rcd.apolyline.parts);
@@ -116,18 +120,21 @@ void read_all_road_records(FILE *froad, FILE *froadAttr, struct Region *region)
 }
 
 
-void add_road_rcd_to_region(struct Polyline_record *rcd, struct Region *region)
+void add_road_rcd_to_region(struct Polyline_record *rcd, struct Region *region, int lane_num)
 {
 
   	struct Road *aNewRoad, *bNewRoad;
 	struct Point *newp;
 	int i;
+        double dist = lane_num*LANE_WIDTH;
 
 	if (rcd->direction == DIRECTION_FORWARD || rcd->direction == DIRECTION_REVERSE ) {
 		aNewRoad = (struct Road*)malloc(sizeof(struct Road));
 		road_init_func(aNewRoad);
 		aNewRoad->id = region->roadNums++;
-		aNewRoad->width = rcd->width;
+		//aNewRoad->width = rcd->width;
+                aNewRoad->width = lane_num*LANE_WIDTH;
+
 		for(i = 0; i<rcd->apolyline.nPoints; i++) {
 			newp = (struct Point*)malloc(sizeof(struct Point));
 			newp->x = rcd->apolyline.points[i].x;
@@ -146,12 +153,13 @@ void add_road_rcd_to_region(struct Polyline_record *rcd, struct Region *region)
 		}
 		duallist_copy(&aNewRoad->points, &aNewRoad->origPoints, (void*(*)(void*))point_copy_func);
 		duallist_add_to_tail(&(region->roads), aNewRoad);
-		setup_road(aNewRoad, region);
+		setup_road(aNewRoad, region, lane_num);
 	} else {
 		aNewRoad = (struct Road*)malloc(sizeof(struct Road));
 		road_init_func(aNewRoad);
 		aNewRoad->id = region->roadNums++;
-		aNewRoad->width = rcd->width;
+		//aNewRoad->width = rcd->width;
+                aNewRoad->width = lane_num*LANE_WIDTH;
 		
 		for(i = 0; i<rcd->apolyline.nPoints; i++) {
 			newp = (struct Point*)malloc(sizeof(struct Point));
@@ -162,15 +170,18 @@ void add_road_rcd_to_region(struct Polyline_record *rcd, struct Region *region)
 			else
 				free(newp);
 		}
+
 		offset_right_road(&aNewRoad->origPoints, aNewRoad->width/2, &aNewRoad->points);
 		duallist_add_to_tail(&(region->roads), aNewRoad);
-		setup_road(aNewRoad, region);
+		setup_road(aNewRoad, region, lane_num);
 
 		/*reverse direction */
 		bNewRoad = (struct Road*)malloc(sizeof(struct Road));
 		road_init_func(bNewRoad);
 		bNewRoad->id = region->roadNums++;
-		bNewRoad->width = rcd->width;
+		//bNewRoad->width = rcd->width;
+                bNewRoad->width = lane_num*LANE_WIDTH;
+
 		for(i = 0; i<rcd->apolyline.nPoints; i++) {
 			newp = (struct Point*)malloc(sizeof(struct Point));
 			newp->x = rcd->apolyline.points[i].x;
@@ -180,9 +191,10 @@ void add_road_rcd_to_region(struct Polyline_record *rcd, struct Region *region)
 			else
 				free(newp);
 		}
+
 		offset_right_road(&bNewRoad->origPoints, bNewRoad->width/2, &bNewRoad->points);
 		duallist_add_to_tail(&(region->roads), bNewRoad);
-		setup_road(bNewRoad, region);
+		setup_road(bNewRoad, region, lane_num);
 	}
 }
 
@@ -441,15 +453,17 @@ struct Region* region_load_func(FILE *fInput, struct Polygon *chosen_polygon, do
 		region->chosen_polygon = chosen_polygon;
 	}
 
-
 	duallist_load(fInput, &region->roads, (void*(*)(FILE*))road_load_func);
+	
 	duallist_load(fInput, &region->crosses, (void*(*)(FILE*))cross_load_func);
+		
 	duallist_load(fInput, &region->districts, (void*(*)(FILE*))district_load_func);
 	duallist_load(fInput, &region->rivers, (void*(*)(FILE*))river_load_func);
 
 	setup_cells_in_region(region);
+		
 	setup_roads_and_crosses_in_region(region);
-
+	
 	return region;
 }
 
@@ -467,6 +481,7 @@ void edit_region(FILE *fedit, struct Region *aRegion)
 {
 	char buf[2048], *action, *on, *direction, *type, *strp;
 	int dir;
+        int lane_num = DEFAULT_LANE_NUM;
 	struct Road *aNewRoad, *bNewRoad, *aRoad;
 	struct Item *aItem, *bItem;
 	struct Cross *aCross, *bCross;
@@ -518,7 +533,7 @@ void edit_region(FILE *fedit, struct Region *aRegion)
 					offset_right_road(&aNewRoad->origPoints, aNewRoad->width/2, &aNewRoad->points);
 					duallist_add_to_tail(&(aRegion->roads), aNewRoad);
 					aNewRoad->id = aRegion->roadNums++;
-					setup_road(aNewRoad, aRegion);
+					setup_road(aNewRoad, aRegion, lane_num);
 					printf("New road No.%d is added.\n", aNewRoad->id);
 				} else {
 					aNewRoad = (struct Road*)malloc(sizeof(struct Road));
@@ -545,7 +560,7 @@ void edit_region(FILE *fedit, struct Region *aRegion)
 					offset_right_road(&aNewRoad->origPoints, aNewRoad->width/2, &aNewRoad->points);
 					duallist_add_to_tail(&(aRegion->roads), aNewRoad);
 					aNewRoad->id = aRegion->roadNums++;
-					setup_road(aNewRoad, aRegion);
+					setup_road(aNewRoad, aRegion, lane_num);
 					printf("New road No.%d is added.\n", aNewRoad->id);
 
 					/*reverse direction */
@@ -555,7 +570,7 @@ void edit_region(FILE *fedit, struct Region *aRegion)
 					offset_right_road(&bNewRoad->origPoints, bNewRoad->width/2, &bNewRoad->points);
 					duallist_add_to_tail(&(aRegion->roads), bNewRoad);
 					bNewRoad->id = aRegion->roadNums++;
-					setup_road(bNewRoad, aRegion);
+					setup_road(bNewRoad, aRegion, lane_num);
 					printf("New road No.%d is added.\n", bNewRoad->id);
 				}
 
@@ -588,7 +603,7 @@ void edit_region(FILE *fedit, struct Region *aRegion)
 						offset_right_road(&aNewRoad->origPoints, aNewRoad->width/2, &aNewRoad->points);
 						duallist_add_to_tail(&(aRegion->roads), aNewRoad);
 						aNewRoad->id = aRegion->roadNums++;
-						setup_road(aNewRoad, aRegion);
+						setup_road(aNewRoad, aRegion, lane_num);
 						printf("New road No.%d is added.\n", aNewRoad->id);
 					} else {
 						aNewRoad = (struct Road*)malloc(sizeof(struct Road));
@@ -602,7 +617,7 @@ void edit_region(FILE *fedit, struct Region *aRegion)
 						offset_right_road(&aNewRoad->origPoints, aNewRoad->width/2, &aNewRoad->points);
 						duallist_add_to_tail(&(aRegion->roads), aNewRoad);
 						aNewRoad->id = aRegion->roadNums++;
-						setup_road(aNewRoad, aRegion);
+						setup_road(aNewRoad, aRegion, lane_num);
 						printf("New road No.%d is added.\n", aNewRoad->id);
 
 						/*reverse direction */
@@ -617,7 +632,7 @@ void edit_region(FILE *fedit, struct Region *aRegion)
 						offset_right_road(&bNewRoad->origPoints, bNewRoad->width/2, &bNewRoad->points);
 						duallist_add_to_tail(&(aRegion->roads), bNewRoad);
 						bNewRoad->id = aRegion->roadNums++;
-						setup_road(bNewRoad, aRegion);
+						setup_road(bNewRoad, aRegion, lane_num);
 						printf("New road No.%d is added.\n", bNewRoad->id);
 					}
 				} else {
@@ -716,11 +731,11 @@ void edit_region(FILE *fedit, struct Region *aRegion)
 
 				offset_right_road(&aNewRoad->origPoints, aNewRoad->width/2, &aNewRoad->points);
 				duallist_add_to_tail(&(aRegion->roads), aNewRoad);
-				setup_road(aNewRoad, aRegion);
+				setup_road(aNewRoad, aRegion, lane_num);
 
 				offset_right_road(&bNewRoad->origPoints, bNewRoad->width/2, &bNewRoad->points);
 				duallist_add_to_tail(&(aRegion->roads), bNewRoad);
-				setup_road(bNewRoad, aRegion);
+				setup_road(bNewRoad, aRegion, lane_num);
 				printf("Original road No.%d is cut into two roads No.%d and No.%d.\n", aNewRoad->id, aNewRoad->id, bNewRoad->id);
 
 			} else {
@@ -803,14 +818,16 @@ void setup_cells_in_region(struct Region *region)
 void setup_roads_and_crosses_in_region(struct Region *region)
 {
   	int m1, m2, n1, n2, i, j;
+	double dist1, dist2, angle;
 	struct Cell *aCell;
-	struct Road *aRoad;
+	struct Road *aRoad, *bRoad;
 	struct Cross *aCross;
 	struct Item *aItem, *bItem, *aCrossItem, *temp, *p;
+	struct Point *aPoint, *bPoint;
 	unsigned long k;
 	struct Duallist surCells;
 	int notFound;
-
+	//	printf("555\n");
 	/* mount roads and crosses to cells first*/
 	if(region->mesh != NULL) {
 		aItem = region->roads.head;
@@ -848,13 +865,14 @@ void setup_roads_and_crosses_in_region(struct Region *region)
 				link_cross(aCross, &(aCell->crosses));
 				aItem = aItem->next;
 			} else {
+				printf("555.1\n");
 				temp = aItem->next;
 				cross_free_func((struct Cross*)duallist_pick_item(&region->crosses, aItem));
 				aItem = temp;
 			}
 		}
 	}
-
+	//	printf("666\n");
 	/* setup connections between roads and crosses */
 	aItem = region->roads.head;
 	for(k=0;k<region->roads.nItems;k++) {
@@ -869,9 +887,10 @@ void setup_roads_and_crosses_in_region(struct Region *region)
 		      aCrossItem = aCell->crosses.head;
 		      while(aCrossItem != NULL) {
 			      //before this step, the headEnd pointer is used to temporarily store the Cross's number
-			      if((int)aRoad->headEnd == ((struct Cross*)aCrossItem->datap)->number) {
+			      if((long)aRoad->headEnd == ((struct Cross*)aCrossItem->datap)->number) {
 				      aRoad->headEnd = (struct Cross*)aCrossItem->datap;
 				      link_road(aRoad, &(((struct Cross*)aCrossItem->datap)->outRoads));
+				      add_road_order(aCrossItem, aRoad, &((struct Cross*)aCrossItem->datap)->outOrderRoads, aRoad->headEndAngle);
 				      notFound = 0;
 				      break;
 			      }
@@ -890,9 +909,10 @@ void setup_roads_and_crosses_in_region(struct Region *region)
 		      aCell = (struct Cell*)bItem->datap;
 		      aCrossItem = aCell->crosses.head;
 		      while(aCrossItem != NULL) {
-			      if((int)aRoad->tailEnd == ((struct Cross*)aCrossItem->datap)->number) {
+			      if((long)aRoad->tailEnd == ((struct Cross*)aCrossItem->datap)->number) {
 				      aRoad->tailEnd = (struct Cross*)aCrossItem->datap;
 				      link_road(aRoad, &(((struct Cross*)aCrossItem->datap)->inRoads));
+				      add_road_order(aCrossItem, aRoad, &((struct Cross*)aCrossItem->datap)->inOrderRoads, aRoad->tailEndAngle);
 				      notFound = 0;
 				      break;
 			      }
@@ -902,6 +922,43 @@ void setup_roads_and_crosses_in_region(struct Region *region)
 		}
 		duallist_destroy(&surCells, NULL);
 		aItem = aItem->next;
+	}
+	printf("777\n");
+	/*calculate cross points*/
+
+	aCrossItem = region->crosses.head;
+	for (k=0; k< region->crosses.nItems; k++) {
+		aCross = (struct Cross*)aCrossItem->datap;
+		//if (aCross->inOrderRoads.nItems == 1) continue;
+		//printf("%d %d\n",aCross->inOrderRoads.nItems,aCross->outOrderRoads.nItems);
+		aItem = aCross->inOrderRoads.head;
+		bItem = aCross->outOrderRoads.head;
+		while(aItem != NULL) {
+			aPoint = (struct Point*)malloc(sizeof(struct Point));
+			aRoad = (struct Road*)aItem->datap;
+			dist1 = distance_in_latitude(aRoad->width/2);
+			aPoint->x = aRoad->tailPoint.x;
+			aPoint->y = aRoad->tailPoint.y;
+			aPoint->x = aPoint->x+ dist1*sin(M_PI*aRoad->tailEndAngle/180);
+			aPoint->y = aPoint->y- dist1*cos(M_PI*aRoad->tailEndAngle/180);
+			angle = angle_between(aCross->gPoint.x, aCross->gPoint.y, aPoint->x, aPoint->y);
+			add_point_in_order(aCrossItem, aPoint, &aCross->points, angle);
+			aItem = aItem->next;
+		}
+		while(bItem != NULL) {
+			bPoint = (struct Point*)malloc(sizeof(struct Point));
+			bRoad = (struct Road*)bItem->datap;
+			dist2 = distance_in_latitude(bRoad->width/2);
+			bPoint->x = bRoad->headPoint.x;
+			bPoint->y = bRoad->headPoint.y;
+			bPoint->x = bPoint->x+ dist2*sin(M_PI*bRoad->headEndAngle/180);
+			bPoint->y = bPoint->y- dist2*cos(M_PI*bRoad->headEndAngle/180);
+			angle = angle_between(aCross->gPoint.x, aCross->gPoint.y, bPoint->x, bPoint->y);
+			add_point_in_order(aCrossItem, bPoint, &aCross->points, angle);
+			bItem = bItem->next;
+		}
+		//printf("%d\n",aCross->points.nItems);
+		aCrossItem = aCrossItem->next;
 	}
 }
 
@@ -1044,7 +1101,7 @@ int is_legal(struct Polygon *chosen_polygon, struct Point *aPoint)
   previous = chosen_polygon->points.head;
 
   if(chosen_polygon->points.nItems < 2) { 
-	if (point_equal_func(chosen_polygon->points.head->datap, aPoint)) 
+	if (point_equal_func((struct Point*)chosen_polygon->points.head->datap, aPoint)) 
 		return 0;
 	else 
 		return 1;
@@ -1172,7 +1229,12 @@ void cell_init_func(struct Cell *aCell)
 	duallist_init(&aCell->routes);
 	duallist_init(&aCell->stops);
 	duallist_init(&aCell->displays);
+
 	aCell->storage = NULL;
+
+	/*new*/
+	duallist_init(&aCell->cars);
+
 }
 
 void cell_free_func(struct Cell *aCell)
@@ -1183,6 +1245,7 @@ void cell_free_func(struct Cell *aCell)
 	duallist_destroy(&aCell->crosses, NULL);
 	duallist_destroy(&aCell->routes, NULL);
 	duallist_destroy(&aCell->stops, NULL);
+	duallist_destroy(&aCell->cars, NULL);
 	duallist_destroy(&aCell->displays, free);
 }
 
@@ -1428,7 +1491,7 @@ struct Path* find_shortest_path(struct Region* region, struct Cross* sCross, str
 	binaryHeap_add(newHeap, sCross);
 	selectCount = 0;
 	while (!is_binaryHeap_empty(newHeap) && !dCross->checked && selectCount < MAXIMUM_SEARCH_COUNT) {
-		aCross = binaryHeap_pick(newHeap);
+		aCross = (struct Cross*)binaryHeap_pick(newHeap);
 		selectCount ++;
 		aCross->checked = 1;
 		aItem = aCross->outRoads.head;
@@ -1602,6 +1665,8 @@ void road_init_func(struct Road *aRoad)
 	duallist_init(&aRoad->points);
 	duallist_init(&aRoad->refs);
 	duallist_init(&aRoad->slides);
+        duallist_init(&aRoad->lanes);
+        duallist_init(&aRoad->lane_lines);
 	aRoad->width = ROAD_WIDTH;
 	aRoad->value = 0;
 	aRoad->headEnd = NULL;
@@ -1648,6 +1713,15 @@ void road_dump_func(FILE *fOutput, struct Road *aRoad)
 	fwrite(&aRoad->box, sizeof(double), 4, fOutput);
 	duallist_dump(fOutput, &aRoad->origPoints, (void(*)(FILE*,void*))point_dump_func);
 	duallist_dump(fOutput, &aRoad->points, (void(*)(FILE*,void*))point_dump_func);
+        /************************New************************/
+        fwrite(&aRoad->headPoint.x, sizeof(double), 1, fOutput);
+        fwrite(&aRoad->headPoint.y, sizeof(double), 1, fOutput);
+        fwrite(&aRoad->tailPoint.x, sizeof(double), 1, fOutput);
+        fwrite(&aRoad->tailPoint.y, sizeof(double), 1, fOutput);
+        duallist_dump(fOutput, &aRoad->lanes, (void(*)(FILE*,void*))Lane_dump_func);
+        duallist_dump(fOutput, &aRoad->lane_lines, (void(*)(FILE*,void*))Lane_line_dump_func);
+        Trafficlight_dump_func(fOutput, aRoad);
+        /***************************************************/
 	fwrite(&aRoad->headEndAngle, sizeof(int), 1, fOutput);
 	fwrite(&aRoad->tailEndAngle, sizeof(int), 1, fOutput);
 	/* record the numbers of headEnd and tailEnd crosses */
@@ -1668,6 +1742,15 @@ struct Road* road_load_func(FILE *fInput)
 	fread(&newRoad->box, sizeof(double), 4, fInput);
 	duallist_load(fInput, &newRoad->origPoints, (void*(*)(FILE*))point_load_func);
 	duallist_load(fInput, &newRoad->points, (void*(*)(FILE*))point_load_func);
+        /*******************************New***************************************/
+	fread(&newRoad->headPoint.x, sizeof(double), 1, fInput);
+	fread(&newRoad->headPoint.y, sizeof(double), 1, fInput);
+	fread(&newRoad->tailPoint.x, sizeof(double), 1, fInput);
+	fread(&newRoad->tailPoint.y, sizeof(double), 1, fInput);
+        duallist_load(fInput, &newRoad->lanes, (void*(*)(FILE*))lane_load_func);
+        duallist_load(fInput, &newRoad->lane_lines, (void*(*)(FILE*))lane_line_load_func);
+        Trafficlight_load_func(fInput, newRoad);
+        /*************************************************************************/
 	fread(&newRoad->headEndAngle, sizeof(int), 1, fInput);
 	fread(&newRoad->tailEndAngle, sizeof(int), 1, fInput);
 	/* note that pointers are holding crosses' numbers */
@@ -1699,8 +1782,8 @@ struct Road* road_copy_func(struct Road* aRoad)
 		rtRoad->headEndAngle = aRoad->headEndAngle;
 		rtRoad->tailEndAngle = aRoad->tailEndAngle;
 		/* note that pointers are holding crosses' numbers */
-		rtRoad->headEnd = (void*)aRoad->headEnd->number;
-		rtRoad->tailEnd = (void*)aRoad->tailEnd->number;
+		rtRoad->headEnd = (struct Cross*)aRoad->headEnd->number;
+		rtRoad->tailEnd = (struct Cross*)aRoad->tailEnd->number;
 		duallist_init(&rtRoad->slides);
 		duallist_init(&rtRoad->refs);
 		rtRoad->value = 0;
@@ -1834,17 +1917,17 @@ void offset_right(struct Segment *original, double offset, struct Segment *rnSeg
 }
 
 
-void setup_road (struct Road *newRoad, struct Region *region)
+void setup_road (struct Road *newRoad, struct Region *region, int lane_num)
 {
-
   struct Cell *aCell;
   struct Item *p,*q;
   struct Cross *newCross;
   struct Item *aItem, *aCrossItem;
-  double agl;
+  double agl, dist, cross_width = 2.0*lane_num*LANE_WIDTH;
   int m1, m2, n1, n2, i, j;
   int isNewCross;
   struct Duallist surCells;
+  struct Point point;
 
   newRoad->length = 0;
 
@@ -1860,7 +1943,9 @@ void setup_road (struct Road *newRoad, struct Region *region)
   	newRoad->box.ymax = MAX(((struct Point*)q->datap)->y, newRoad->box.ymax);
   	p = q;
   	q = q->next;
+
   }
+
 
   if(region->mesh != NULL) {
 	  m1 = floor((newRoad->box.xmin - region->chosen_polygon->box.xmin)/region->cellSize);
@@ -1876,6 +1961,7 @@ void setup_road (struct Road *newRoad, struct Region *region)
 		}
 	  }
   }
+
   /* set up crosses */
   isNewCross = 1;
   p = newRoad->origPoints.head;
@@ -1892,6 +1978,7 @@ void setup_road (struct Road *newRoad, struct Region *region)
 			newRoad->headEnd = (struct Cross*)aCrossItem->datap;
 			newRoad->headEndAngle = agl;
 			link_road(newRoad, &(((struct Cross*)aCrossItem->datap)->outRoads));
+			//add_road_order(aCrossItem, newRoad, &(((struct Cross*)aCrossItem->datap)->outorderRoads), agl);
 			/* the maximum degree of crosses in the region */
 			if(region->maxdgr < ((struct Cross*)aCrossItem->datap)->outRoads.nItems + ((struct Cross*)aCrossItem->datap)->inRoads.nItems)
 				region->maxdgr = ((struct Cross*)aCrossItem->datap)->outRoads.nItems+ ((struct Cross*)aCrossItem->datap)->inRoads.nItems;
@@ -1901,7 +1988,7 @@ void setup_road (struct Road *newRoad, struct Region *region)
 	}
 	aItem = aItem->next;
   }
-	
+
   if(isNewCross) {
 	newCross = (struct Cross*)malloc(sizeof(struct Cross));	
 	cross_init_func(newCross);
@@ -1912,14 +1999,14 @@ void setup_road (struct Road *newRoad, struct Region *region)
 	newRoad->headEnd = newCross;
 	newRoad->headEndAngle = agl;
 	link_road(newRoad, &(newCross->outRoads));
+	//duallist_add_to_head(&newCross->outOrderRoads, newRoad);
 
-	create_box(((struct Point*)p->datap), CROSS_WIDTH, &(newCross->box));
+	create_box(((struct Point*)p->datap), cross_width, &(newCross->box));
 
 	duallist_add_to_tail(&(region->crosses), newCross);
 	link_cross(newCross, &(((struct Cell*)surCells.head->datap)->crosses));
   }
   duallist_destroy(&surCells, NULL);
-
 
   isNewCross = 1;
   p = newRoad->origPoints.head->prev;
@@ -1936,6 +2023,7 @@ void setup_road (struct Road *newRoad, struct Region *region)
 			newRoad->tailEnd = (struct Cross*)aCrossItem->datap;
 			newRoad->tailEndAngle = agl;
 			link_road(newRoad, &(((struct Cross*)aCrossItem->datap)->inRoads));
+			//add_road_order(aCrossItem, newRoad, &(((struct Cross*)aCrossItem->datap)->inorderRoads), agl);
 			/* the maximum degree of crosses in the region */
 			if(region->maxdgr < ((struct Cross*)aCrossItem->datap)->outRoads.nItems + ((struct Cross*)aCrossItem->datap)->inRoads.nItems)
 				region->maxdgr = ((struct Cross*)aCrossItem->datap)->outRoads.nItems+ ((struct Cross*)aCrossItem->datap)->inRoads.nItems;
@@ -1945,7 +2033,7 @@ void setup_road (struct Road *newRoad, struct Region *region)
 	}
 	aItem = aItem->next;
   }
-	
+
   if(isNewCross) {
 	newCross = (struct Cross*)malloc(sizeof(struct Cross));	
 	cross_init_func(newCross);
@@ -1956,19 +2044,135 @@ void setup_road (struct Road *newRoad, struct Region *region)
 	newRoad->tailEnd = newCross;
 	newRoad->tailEndAngle = agl;
 	link_road(newRoad, &(newCross->inRoads));
+	//duallist_add_to_head(&newCross->inorderRoads, newRoad);
 
-	create_box(((struct Point*)p->datap), CROSS_WIDTH, &(newCross->box));
+	create_box(((struct Point*)p->datap), cross_width, &(newCross->box));
 
 	duallist_add_to_tail(&(region->crosses), newCross);
 	link_cross(newCross, &(((struct Cell*)surCells.head->datap)->crosses));
   }
   duallist_destroy(&surCells, NULL);
 
+  /****************************************New****************************************/
+  dist = 1.5*distance_in_latitude(newRoad->width);
+  point.x = ((struct Point*)newRoad->points.head->prev->datap)->x;
+  point.y = ((struct Point*)newRoad->points.head->prev->datap)->y;
+  newRoad->tailPoint.x = point.x - dist * cos(M_PI*newRoad->tailEndAngle/180);
+  newRoad->tailPoint.y = point.y - dist * sin(M_PI*newRoad->tailEndAngle/180);
+
+  point.x = ((struct Point*)newRoad->points.head->datap)->x;
+  point.y = ((struct Point*)newRoad->points.head->datap)->y;
+  newRoad->headPoint.x = point.x + dist * cos(M_PI*newRoad->headEndAngle/180);
+  newRoad->headPoint.y = point.y + dist * sin(M_PI*newRoad->headEndAngle/180);
+  
+  setup_lanes(newRoad, lane_num);
+  setup_lane_lines(newRoad, lane_num);
+  setup_traffic_lights(newRoad);
+
+  /***********************************************************************************/
+
   /* check whether a road has the same cross as both headEnd and tailEnd */
   if(newRoad->headEnd == newRoad->tailEnd) {
 	remove_road(region, newRoad);
   }
 }
+
+void add_road_order(struct Item *crossItem, struct Road *newRoad, struct Duallist *roadlist, int angle)
+{
+	struct Item *roadItem;
+	struct Road *aRoad;
+	struct Cross *aCross = (struct Cross*)crossItem->datap;
+	int tmp;
+	if (roadlist->head == NULL){
+		duallist_add_to_head(roadlist, newRoad);
+		return;
+	}
+	else {
+		roadItem = roadlist->head;
+		while(roadItem != NULL){
+			aRoad = (struct Road*)roadItem->datap;
+			if (aRoad->headEnd == aCross) tmp = aRoad->headEndAngle;
+			else tmp = aRoad->tailEndAngle;
+			if (tmp > angle) {duallist_add_before_item(roadlist, roadItem->prev, roadItem, newRoad);return;}
+			roadItem = roadItem->next;
+		} //while
+		duallist_add_to_tail(roadlist, newRoad);
+		return;
+	}
+}
+
+void add_point_in_order(struct Item *crossItem, struct Point *newPoint, struct Duallist *points, double angle)
+{
+	struct Item *pointItem;
+	struct Cross *aCross = (struct Cross*)crossItem->datap;
+	double tmp;
+	if (points->head == NULL){
+		duallist_add_to_head(points, newPoint);
+		return;
+	}
+	else {
+		pointItem = points->head;
+		while(pointItem != NULL){
+			tmp = angle_between(aCross->gPoint.x, aCross->gPoint.y, ((struct Point*)pointItem->datap)->x, ((struct Point*)pointItem->datap)->y);
+			if (tmp > angle) {duallist_add_before_item(points, pointItem->prev, pointItem, newPoint);return;}
+			pointItem = pointItem->next;
+		} //while
+		duallist_add_to_tail(points, newPoint);
+		return;
+	}
+}
+
+/****************************************New****************************************/
+void setup_lanes(struct Road *newRoad, int lane_num)
+{
+  struct Lane *lane;
+  for(int i=0; i<lane_num; i++) {
+    double offset;
+    lane=(struct Lane*)malloc(sizeof(struct Lane));
+    duallist_init(&lane->Points);
+    duallist_init(&lane->vehicles);
+    lane->onRoad = NULL;
+    offset = (double)(newRoad->width/(2*lane_num)*(2*i+1));
+    offset_right_road(&newRoad->origPoints, offset, &lane->Points);
+    if (i==0) lane->type = 6;
+    else lane->type = 3;
+    duallist_add_to_tail(&newRoad->lanes, lane);
+  }
+  
+}
+
+void setup_lane_lines(struct Road *newRoad, int lane_num)
+{
+  struct Lane_line *lane_line;
+  for(int i=0; i<lane_num-1; i++) {
+    double offset;
+    lane_line=(struct Lane_line*)malloc(sizeof(struct Lane_line));
+    duallist_init(&lane_line->Points);
+    offset = (double)(newRoad->width)/lane_num*(i+1);
+    offset_right_road(&newRoad->origPoints, offset, &lane_line->Points);
+    duallist_add_to_tail(&newRoad->lane_lines, lane_line);
+  }
+}
+
+void setup_traffic_lights(struct Road *newRoad)
+{
+  for (int i = 0; i<3; i++) {
+    switch(i){
+        case 2: newRoad->lights[i].state = 0;break;
+        default: newRoad->lights[i].state = 2-i;break;
+    }
+
+    for (int j = 0; j<3; j++){
+      switch(j){
+	  case 0:newRoad->lights[i].duration[j] = 15;break;
+	  case 1:newRoad->lights[i].duration[j] =  5;break;
+	  case 2:newRoad->lights[i].duration[j] = 20;break;
+      }
+    }
+  
+  }
+}
+/***********************************************************************************/
 
 
 void setup_road_slides(struct Road *aRoad, int nSlides)
@@ -2051,6 +2255,8 @@ void cross_init_func(struct Cross *aCross)
 	duallist_init(&aCross->points);
 	duallist_init(&aCross->inRoads);
 	duallist_init(&aCross->outRoads);
+	duallist_init(&aCross->inOrderRoads);
+	duallist_init(&aCross->outOrderRoads);
 	duallist_init(&aCross->refs);
 	aCross->count = 0;
 }
@@ -2061,6 +2267,8 @@ void cross_free_func(struct Cross *aCross)
 	duallist_destroy(&aCross->points, free);
 	duallist_destroy(&aCross->inRoads, NULL);
 	duallist_destroy(&aCross->outRoads, NULL);
+	duallist_destroy(&aCross->inOrderRoads, NULL);
+	duallist_destroy(&aCross->outOrderRoads, NULL);
 	duallist_destroy(&aCross->refs, (void(*)(void*))ref_free_func);
 	free(aCross);
 }
@@ -2084,6 +2292,8 @@ struct Cross* cross_load_func(FILE *fInput)
 	fread(&newCross->box, sizeof(double), 4, fInput);
 	duallist_init(&newCross->inRoads);
 	duallist_init(&newCross->outRoads);
+	duallist_init(&newCross->inOrderRoads);
+	duallist_init(&newCross->outOrderRoads);	
 	duallist_init(&newCross->refs);
 	newCross->range = 0;
 	newCross->fromCross = NULL;
@@ -2111,6 +2321,8 @@ struct Cross* cross_copy_func(struct Cross* aCross)
 	newCross->box.ymax = aCross->box.ymax;
 	duallist_init(&newCross->inRoads);
 	duallist_init(&newCross->outRoads);
+	duallist_init(&newCross->inOrderRoads);
+	duallist_init(&newCross->outOrderRoads);
 	duallist_init(&newCross->refs);
 	newCross->range = 0;
 	newCross->fromCross = NULL;
@@ -2191,7 +2403,60 @@ int cross_equal_func(struct Cross *aCross, struct Cross *bCross)
 	return aCross->number == bCross->number;
 }
 
+/********************************************************************/
+void Lane_dump_func(FILE *fOutput, struct Lane *aLane)
+{
+  duallist_dump(fOutput, &aLane->Points, (void(*)(FILE*,void*))point_dump_func);
+  fwrite(&aLane->type, sizeof(char), 1, fOutput);
+}
 
+struct Lane* lane_load_func(FILE *fInput)
+{
+  struct Lane* newLane;
+  newLane = (struct Lane*)malloc(sizeof(struct Lane));
+  duallist_load(fInput, &newLane->Points, (void*(*)(FILE*))point_load_func);
+  fread(&newLane->type, sizeof(char), 1, fInput);
+  return newLane;	
+}
+
+void Lane_line_dump_func(FILE *fOutput, struct Lane_line *aLane_line)
+{
+   duallist_dump(fOutput, &aLane_line->Points, (void(*)(FILE*,void*))point_dump_func);
+}
+
+struct Lane_line* lane_line_load_func(FILE *fInput)
+{
+  struct Lane_line* newLane_line;
+  newLane_line = (struct Lane_line*)malloc(sizeof(struct Lane_line));
+  duallist_load(fInput, &newLane_line->Points, (void*(*)(FILE*))point_load_func);
+  return newLane_line;
+}
+
+void Trafficlight_dump_func(FILE *fOutput, struct Road *aRoad)
+{
+  for (int i=0; i<3; i++)
+  {
+    fwrite(&aRoad->lights[i].state, sizeof(char), 1, fOutput);
+    for (int j=0; j<3; j++)
+    {
+      fwrite(&aRoad->lights[i].duration[j], sizeof(int), 1, fOutput);
+    }
+  }
+}
+
+void Trafficlight_load_func(FILE *fInput, struct Road *newRoad)
+{
+  for (int i=0; i<3; i++)
+  {
+    fread(&newRoad->lights[i].state, sizeof(char), 1, fInput);
+    for (int j=0; j<3; j++)
+    {
+      fread(&newRoad->lights[i].duration[j], sizeof(int), 1, fInput);
+    }
+  }
+}
+
+/*******************************************************************/
 
 
 
@@ -2514,7 +2779,7 @@ struct District *point_in_district(struct Region *region, struct Point *aPoint)
 			seg2.bPoint.y = point2.y = ((struct Point*)pp->next->datap)->y;
 
 			if (is_point_on_segment(aPoint, &seg2)) 
-				return distp->datap;
+				return (struct District*)distp->datap;
 			if (seg2.aPoint.y != seg2.bPoint.y) {
 				if (is_point_on_segment(&point1, &seg1) || is_point_on_segment(&point2, &seg1)) {
 					if ( is_point_on_segment(&point1, &seg1) && (seg2.aPoint.y > seg2.bPoint.y)) count++;
@@ -2531,7 +2796,7 @@ struct District *point_in_district(struct Region *region, struct Point *aPoint)
 			seg2.bPoint.y = point2.y = ((struct Point*)((struct Duallist*)pllp->datap)->head->datap)->y;
 
 			if (is_point_on_segment(aPoint, &seg2)) 
-				return distp->datap;
+				return (struct District*)distp->datap;
 			if (seg2.aPoint.y != seg2.bPoint.y) {
 				if (is_point_on_segment(&point1, &seg1) || is_point_on_segment(&point2, &seg1)) {
 					if ( is_point_on_segment(&point1, &seg1) && (seg2.aPoint.y > seg2.bPoint.y)) count++;
@@ -2541,7 +2806,7 @@ struct District *point_in_district(struct Region *region, struct Point *aPoint)
 			}
 		}
 
-		if(count % 2 == 1) return distp->datap;
+		if(count % 2 == 1) return (struct District*)distp->datap;
 		pllp=pllp->next;
 	}
 	distp = distp->next;

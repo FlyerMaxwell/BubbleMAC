@@ -319,7 +319,7 @@ void free_used_reports(struct Hashtable *traces)
 			aTrace = (struct Trace*)aItem->datap;
 			bItem = aTrace->at;
 			while(aTrace->reports.head != bItem) {
-				report_free_func(duallist_pick_head(&aTrace->reports));
+				report_free_func((struct Report*)duallist_pick_head(&aTrace->reports));
 			}
 			aItem = aItem->next;
 		}

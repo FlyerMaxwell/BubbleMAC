@@ -163,11 +163,6 @@ int main(int argc, char **argv)
   }
 
 
-
-
-
-  
-
   if(editfile != NULL && region != NULL) {
 	if((fTmp = fopen(editfile, "r"))!=NULL) {
 		edit_region(fTmp, region);
@@ -176,10 +171,6 @@ int main(int argc, char **argv)
 	}
   } 
 
-
-
-
-  
 
   if(region) {
 	printf("Dumping region to .map file.\n");

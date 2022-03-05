@@ -59,7 +59,7 @@ struct Pkg* storage_lookup_pkg(struct Storage *storage, int pkgId)
 	if(storage){
 		aItem = duallist_find(&storage->pkgs, &pkgId, (int(*)(void*,void*))pkg_has_id);
 		if(aItem)
-			return aItem->datap;
+			return (struct Pkg*)aItem->datap;
 	}
 	return NULL;
 }
