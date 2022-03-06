@@ -1,38 +1,185 @@
 #pragma once
 #include "function.h"
 
-
-int init_simulation(struct Region *region)
-{
+//--------------YX below--------------------------------------//
+int init_simulation(struct Region* region){
 	struct Item *aItem;
 	struct Cell *aCell;
 	struct vehicle *aCar;
-	int i,j;
 
-	timestamp=0;
-
-	for(i = 0; i<region->hCells; i++){       
-		for(j = 0; j<region->vCells;j++) {
+	for(int i = 0; i < region->hCells; i++){       
+		for(int j = 0; j < region->vCells;j++) {
 			aCell = region->mesh + i*region->vCells + j;
 			if (aCell->cars.head == NULL) continue;
 			aItem = aCell->cars.head;
 			while (aItem != NULL){
 				aCar = (struct vehicle*)aItem->datap;
-				aCar->role = -1; //each car is given an initial state 0 or 1 (listen or scan)
-				aCar->handled = 0;
-				aCar->communicate_time = 0;
-				aCar->communicated_num = 0;
-				aCar->scan_time = -1;
-				aCar->choose_car_id = -1;
-				duallist_destroy(&aCar->choose_neigh, NULL);
-				duallist_destroy(&aCar->known_neigh, NULL);
-				aItem = aItem->next;
+//-----------------------需要初始化的内容---------------------------//
+                
 			}
 		}
 	}
-
 	return 0;
 }
+
+
+//handle neighbors： 处理邻居，将所有车辆的所在的九宫格内的车挂载到其潜在的neighbors中。
+void handle_neighbors(struct Region* region){
+    struct Cell *aCell, *nCell;
+    struct Item *aItem, *nItem;
+    struct vehicle* aCar, *nCar;
+
+    for(int i = 0; i<region->hCells; i++){       
+		for(int j = 0; j<region->vCells;j++) {
+			aCell = region->mesh + i*region->vCells + j;
+			int neighbour_cell[9][2] = {{i-1,j-1}, {i,j-1}, {i+1,j-1}, {i-1,j}, {i,j}, {i+1,j}, {i-1,j+1}, {i,j+1}, {i+1,j+1}};
+            if (aCell->cars.head == NULL) continue;
+            aItem = aCell->cars.head;
+            while(aItem!=NULL){
+                aCar = (struct vehicle*)aItem->datap;
+                for(int k = 0; i<9 ;k++){
+                    if ((neighbour_cell[k][0]<0 || neighbour_cell[k][0]>=region->hCells) || (neighbour_cell[k][1]<0 || neighbour_cell[k][1]>=region->vCells)) continue;
+                    int tmpx = neighbour_cell[k][0], tmpy = neighbour_cell[k][1];
+                    nCell = aCell = region->mesh + tmpx*region->vCells + tmpy;
+                    nItem = nCell->cars.head;
+                    while(nItem != NULL){
+                        nCar = (struct vehicle*)nItem->datap;
+						if (nCar->id == aCar->id) {nItem = nItem->next; continue;} //ncar is the same car with acar
+                        duallist_add_to_tail(&(aCar->neighbours), nCar);
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
+
+void handle_transmitter(struct Region* region, struct Duallist *Collisions, int slot){
+    struct Cell *aCell;
+    struct Item *aItem, *bItem;
+    struct vehicle *aCar, *bCar;
+    struct neighbour_car* bneigh;
+
+    for(int i = 0; i<region->hCells; i++){       
+        for(int j = 0; j<region->vCells;j++) {
+            aCell = region->mesh + i*region->vCells + j;
+            aItem = aCell->cars.head;
+            while (aItem != NULL){
+                aCar = (struct vehicle*)aItem->datap;
+                if(aCar->slot_occupied != slot) continue; //忽略掉receiver
+
+                bItem = (struct Item*)aCar->neighbours.head;
+                while (bItem != NULL) {
+                    bCar =  (struct vehicle*)bItem->datap;
+                    if(aCar->commRadius < distance_with_neighbor(aCar, bCar)) continue;   //超出通信半径
+                    else{
+                        if(bCar->slot_occupied == aCar->slot_occupied){
+                            struct collision* coli =  generate_collision(aCar,bCar,0,slot);
+                            duallist_add_to_tail(Collisions, coli);
+                        }else{
+                            struct packet* pkt = generate_packet(aCar,slot);
+                            duallist_add_to_tail(&(bCar->packets), pkt);
+                        }                           
+                    }
+                    bItem = bItem->next;
+                }
+                aItem = aItem->next;
+            }
+        }
+    }
+}
+
+void handle_receiver(struct Region* region, struct Duallist* Collisions, int slot){
+    struct Cell *aCell;
+    struct Item *aItem, *bItem;
+    struct vehicle *aCar;
+    struct neighbour_car* bneigh;
+
+    for(int i = 0; i<region->hCells; i++){       
+        for(int j = 0; j<region->vCells;j++) {
+            aCell = region->mesh + i*region->vCells + j;
+            aItem = aCell->cars.head;
+            while (aItem != NULL){
+                aCar = (struct vehicle*)aItem->datap;
+                if(aCar->slot_occupied == slot) continue; //忽略掉transmitter
+                
+                if(aCar->packets.nItems == 0) continue; //没有收到包
+                else if(aCar->packets.nItems == 1){//只收到一个pkt，则正常收包，update OHN 和THN
+                    bItem =  (struct Item*)aCar->packets.head;
+                    struct packet* pkt= (struct packet*)bItem->datap;
+                    int index = pkt->slot, value = pkt->srcVehicle->id;
+                    aCar->slot_oneHop[index] = value;
+                    for(int i = 0 ; i < SlotPerFrame; i++){
+                        aCar->slot_twoHop[i] = pkt->slot_resource_oneHop_snapShot[i];//将pkt中携带的OHN信息更新到THN中，不考虑覆盖问题
+                    }
+                }else{//有两个或以上的pkt，产生Collision
+                    bItem = (struct Item*)aCar->packets.head;
+                    while(bItem!=NULL){
+                        struct packet* pkt= (struct packet*)bItem->datap;
+                        if(pkt->srcVehicle->slot_condition == 1){//Access Collision
+                            struct collision* coli = generate_collision(aCar,pkt->srcVehicle,1,slot);
+                            duallist_add_to_tail(Collisions, coli);
+                        }else if(pkt->srcVehicle->slot_condition == 2){// MergeCollision
+                            struct collision* coli = generate_collision(aCar,pkt->srcVehicle,2,slot);
+                            duallist_add_to_tail(Collisions, coli);
+                        }
+                    } 
+                }
+            }
+        }
+    }
+}
+
+
+void log_collisions(struct Region* region, struct Duallist* Collisions){
+    char output_collisions_path[100];
+    FILE * Collisions_output;
+    sprintf(output_collisions_path, "./simulation_result/result_%d_%d.txt", SlotPerFrame, traffic_density);
+    
+    Collisions_output = fopen(output_collisions_path,"a");
+    
+    struct Item* aItem = (struct Item*)Collisions->head;
+    while( aItem!= NULL){
+        struct collision* coli = (struct collision*)aItem->datap;
+        fprintf(Collisions_output, "%d %d %d %d\n", coli->type, coli->slot, coli->src->id, coli->dst->id);//TBD
+    }
+    fclose(Collisions_output);
+}
+
+double distance_between_vehicle(const struct vehicle* aCar, const struct vehicle* bCar){
+    return sqrt((aCar->x - bCar->x)* (aCar->x - bCar->x) + (aCar->y - bCar->y)*(aCar->y - bCar->y));
+}
+
+struct packet * generate_packet(struct vehicle *aCar, int slot){
+    struct packet* pkt;
+    pkt = (struct packet*)malloc(sizeof(struct packet));
+    pkt->slot = slot;
+    pkt->condition = 0;//还没有发生碰撞
+    pkt->srcVehicle = aCar;
+    pkt->isQueueing = aCar->isQueueing;
+    pkt->slot_resource_oneHop_snapShot = new int[SlotPerFrame];
+    for(int i = 0; i < SlotPerFrame; i++){
+        pkt->slot_resource_oneHop_snapShot[i] = aCar->slot_oneHop[i];
+    }
+    return pkt;
+}
+
+struct collision* generate_collision(struct vehicle *aCar, struct vehicle *bCar,  int type, int slot){
+    struct collision * coli;
+    coli = (struct collision*)malloc(sizeof(struct collision));
+    coli->type = type;
+    coli->slot = slot;
+    coli->src = aCar;
+    coli->dst = bCar;
+    return coli;
+}
+//----------------------YX above---------------------//
+
+
+
+//----------------------fc below-------------------//
 
 int generate_car_old(struct Region *region, unordered_map<int, vehicle*>& allCars) 
 {
@@ -300,198 +447,6 @@ int generate_car(struct Region *region) 		//new generate_car modified by hfc
   return 0;
 }
 
-
-int handle_neighbour(struct Region *region) //need to be changed;
-{
-	struct Cell *aCell, *nCell;
-	struct Item *aItem, *bItem, *nItem, *tItem;
-	struct vehicle *aCar, *bCar, *nCar;
-	struct neighbour_car *bneigh, *aNeigh, *tNeigh;
-	int x, y, i, j;
-
-
-	for(i = 0; i<region->hCells; i++){       
-		for(j = 0; j<region->vCells;j++) {
-			aCell = region->mesh + i*region->vCells + j;
-			aItem = aCell->cars.head;
-			while (aItem != NULL){
-				aCar = (struct vehicle*)aItem->datap;
-				bItem = aCar->neighbours.head;
-				while (bItem != NULL) {
-					bneigh = (struct neighbour_car*)bItem->datap;
-					bneigh->state = 0;
-					bItem = bItem->next;
-				}
-				aItem = aItem->next;
-			}
-		}
-	}
-
-	//printf("11111111\n");
-	for(i = 0; i<region->hCells; i++){       
-		for(j = 0; j<region->vCells;j++) {
-			aCell = region->mesh + i*region->vCells + j;
-			int neighbour_cell[9][2] = {{i-1,j-1}, {i,j-1}, {i+1,j-1}, {i-1,j}, {i,j}, {i+1,j}, {i-1,j+1}, {i,j+1}, {i+1,j+1}};
-			if (aCell->cars.head == NULL) continue;
-
-			aItem = aCell->cars.head;
-			while (aItem != NULL){
-				aCar = (struct vehicle*)aItem->datap;
-				for (int k=0; k<9; k++){
-					if ((neighbour_cell[k][0]<0 || neighbour_cell[k][0]>=region->hCells) || (neighbour_cell[k][1]<0 || neighbour_cell[k][1]>=region->vCells)) continue;
-					int tmpx = neighbour_cell[k][0], tmpy = neighbour_cell[k][1];
-					nCell = aCell = region->mesh + tmpx*region->vCells + tmpy;
-					nItem = nCell->cars.head;
-					while (nItem != NULL){
-						nCar = (struct vehicle*)nItem->datap;
-						if (nCar->id == aCar->id) {nItem = nItem->next; continue;} //ncar is the same car with acar
-
-						double dis, angle;
-						dis = calculate_dis(aCar->x1, aCar->y1, nCar->x1, nCar->y1);
-						if (dis > com_dis) {nItem = nItem->next; continue;}
-						angle = angle_between(aCar->x1, aCar->y1, nCar->x1, nCar->y1);						
-
-						bItem = aCar->neighbours.head;
-						int flag = true;
-						while(bItem != NULL){
-							bneigh = (struct neighbour_car*)bItem->datap;
-							bCar = (struct vehicle*)bneigh->carItem->datap;
-
-							if (calculate_angle_diff(angle, bneigh->angle) > neighbour_angle) {
-								bItem=bItem->next;continue;
-							}
-
-							if (bneigh->dis < dis) {flag=false;bItem = bItem->next;continue;}
-							
-							tItem = bItem;
-							bItem = bItem->next;
-							duallist_pick_item(&aCar->neighbours, tItem);
-						}
-
-						if (flag){
-							struct neighbour_car *new_neigh;
-							new_neigh = (struct neighbour_car*)malloc(sizeof(struct neighbour_car));
-							new_neigh->carItem = nItem;
-							new_neigh->state = 1;
-							new_neigh->cell_x = neighbour_cell[k][0];
-							new_neigh->cell_y = neighbour_cell[k][1];
-							new_neigh->car_id = nCar->id;
-							new_neigh->dis = dis;
-							new_neigh->angle = angle;
-
-							bItem = aCar->history_neigh.head;
-							while (bItem != NULL) {
-								bneigh = (struct neighbour_car*)bItem->datap;
-								bCar = (struct vehicle*)bneigh->carItem->datap;
-								if (bCar->id == new_neigh->car_id) {//printf("neigh id: %d, packet time: %d\n", bCar->id, bneigh->packet_num);
-									new_neigh->packet_num = bneigh->packet_num;
-									break;
-								}
-								bItem = bItem->next;
-							}
-							if (bItem == NULL || bi_num%200 == 0) new_neigh->packet_num=DATA_TIME;
-							duallist_add_to_tail(&(aCar->neighbours), new_neigh);
-							//if (bItem == NULL) duallist_add_to_tail(&(aCar->history_neigh), new_neigh);
-						}
-
-						nItem = nItem->next;
-					}
-				}
-				aItem = aItem->next; 
-			}
-		}
-	}
-	
-	//printf("22222222\n");
-	struct Item *bnItem;
-	// validate whether each neighbour car of aCar also treat aCar as its neighbour
-	for(i = 0; i<region->hCells; i++){       
-		for(j = 0; j<region->vCells;j++) {
-			aCell = region->mesh + i*region->vCells + j;
-			aItem = aCell->cars.head;
-			while (aItem != NULL){
-				aCar = (struct vehicle*)aItem->datap;
-				nItem = aCar->neighbours.head;
-				while (nItem != NULL){
-					int flag = false;
-					bItem = ((struct neighbour_car*)nItem->datap)->carItem;
-					bCar = (struct vehicle*)bItem->datap;
-					bnItem = bCar->neighbours.head;
-					while (bnItem != NULL){
-						bneigh = (struct neighbour_car*)bnItem->datap;
-						if (bneigh->car_id == aCar->id) {flag = true; break;}
-						bnItem = bnItem->next;
-					}
-					if (flag == false) {tItem = nItem; nItem=nItem->next; duallist_pick_item(&aCar->neighbours, tItem); continue;}
-					nItem = nItem->next;
-				}
-				aItem = aItem->next;
-			}
-		}
-	}
-
-	//printf("33333333\n");
-	int total_edge=0;
-	for(i = 0; i<region->hCells; i++){       
-		for(j = 0; j<region->vCells;j++) {
-			aCell = region->mesh + i*region->vCells + j;
-			if (aCell->cars.head == NULL) continue;
-
-			aItem = aCell->cars.head;
-			while (aItem != NULL){
-				aCar = (struct vehicle*)aItem->datap;
-				total_edge+=aCar->neighbours.nItems;
-				aItem = aItem->next;
-			}		
-		}
-	}
-
-	total_edge /=2;
-	//printf("BI number: %d, total edge number: %d\n", bi_num, total_edge);
-
-	/*if (bi_num%100 ==99) { //real neighbour for calculating metric 1,2,3
-		for(i = 0; i<region->hCells; i++){       
-			for(j = 0; j<region->vCells;j++) {
-				aCell = region->mesh + i*region->vCells + j;
-				if (aCell->cars.head == NULL) continue;
-
-				aItem = aCell->cars.head;
-				while (aItem != NULL){
-					aCar = (struct vehicle*)aItem->datap;
-					duallist_destroy(&aCar->real_neigh, NULL);
-					duallist_copy_by_reference(&aCar->real_neigh, &aCar->neighbours);
-					aItem = aItem->next;
-				}		
-			}
-		}
-	}*/
-
-	for(i = 0; i<region->hCells; i++){       //delete neighbours whose data has all been transmitted & beam index
-		for(j = 0; j<region->vCells;j++) {
-			aCell = region->mesh + i*region->vCells + j;
-			aItem = aCell->cars.head;
-			while (aItem != NULL){
-				aCar = (struct vehicle*)aItem->datap;
-				nItem = aCar->neighbours.head;
-				while (nItem != NULL){
-					aNeigh = (struct neighbour_car*)nItem->datap;
-					aNeigh->beam_index = (int)(aNeigh->angle/(min_scan_interval)+0.5);
-					aNeigh->scan_beam_index = (int)(aNeigh->angle/scan_theta+0.5);
-					if (aNeigh->packet_num <=0) {tItem = nItem; nItem = nItem->next; duallist_pick_item(&aCar->neighbours, tItem); continue;}
-					nItem = nItem->next;
-				}
-				aItem = aItem->next;
-			}
-		}
-	}
-
-	//calculate_control_SNR(region);
-	calculate_rate(region);
-
-	show_graph_degree(region);
-
-	return 0;
-}
 
 void update_vehicle_info(struct Region *region)
 {
