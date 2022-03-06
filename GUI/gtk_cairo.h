@@ -180,6 +180,7 @@ void draw_crosses(struct ScreenContext *screenContext);
 void draw_rsus(struct ScreenContext *screenContext);
 void draw_scale(struct ScreenContext *screenContext);
 void draw_selected_routes(struct ScreenContext *screenContext, cairo_t *cr);
+void draw_trafficlights(struct ScreenContext *screenContext);
 
 void draw_displayed_traces(struct ScreenContext *screenContext, cairo_t*cr);
 void draw_displayed_reports(struct ScreenContext *screenContext, cairo_t *cr, struct Trace *aTrace);
@@ -197,6 +198,7 @@ void draw_single_contact(struct ScreenContext *screenContext, cairo_t *cr, struc
 void draw_single_storage_node(struct ScreenContext *screenContext, cairo_t *cr, struct Node *aNode, struct RGBO *color);
 void rubber_single_report(struct ScreenContext *screenContext, cairo_t *cr, struct Report *aReport);
 void show_district(struct ScreenContext *screenContext, struct District *aDistrict, cairo_t *cr);
+void draw_single_trafficlight(struct ScreenContext *screenContext, cairo_t *cr, struct Road *aRoad, struct Color light_red, struct Color light_green, struct Color light_yellow);
 
 void gps_to_canvas(struct WindowSize* awnd, double x, double y, double *rx, double *ry);
 double canvas_to_gps(struct WindowSize* awnd, double x, double y, double *rx, double *ry);

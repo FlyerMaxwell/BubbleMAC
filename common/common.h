@@ -32,6 +32,7 @@
 #define VEHICLE_TYPE_BUS 2
 #define VEHICLE_TYPE_NULL 3 
 
+#define MAX_HASH_SIZE 10000		// the max lane number of hashtable
 /* data structure definition */
 union Int_byte
 {
@@ -90,6 +91,7 @@ struct Item* duallist_add_to_head(struct Duallist *duallist, void *data);
 struct Item* duallist_add_to_tail(struct Duallist *duallist, void *data);
 struct Item* duallist_add_in_sequence_from_head(struct Duallist *duallist, void* data, int(*sort_func)(void*, void*));
 struct Item* duallist_add_in_sequence_from_tail(struct Duallist *duallist, void* data, int(*sort_func)(void*, void*));
+struct Item* duallist_add_before_item(struct Duallist *duallist, struct Item *fItem, struct Item *lItem, void *data);
 struct Item* duallist_add_unique(struct Duallist *duallist, void *data, int(*judge_func)(void*, void*));
 struct Item* duallist_find(struct Duallist *duallist, void *key, int(*judge_func)(void*, void*));
 void* duallist_pick(struct Duallist *duallist, void *key, int(*judge_func)(void*, void*));

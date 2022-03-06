@@ -1,0 +1,15 @@
+#.gitignore 
+
+*.map
+*.lo
+*.o
+*.a
+*.csv
+*.at
+
+/car_position/
+/car_position_2/
+/__MACOSX/
+/simulation_result/
+/graph/
+/plot_file/

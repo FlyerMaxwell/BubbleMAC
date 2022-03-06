@@ -1,4 +1,4 @@
-trace_load_func#ifndef GEOMETRY_H
+#ifndef GEOMETRY_H
 #define GEOMETRY_H
 
 #include <stdio.h>
@@ -16,7 +16,11 @@ trace_load_func#ifndef GEOMETRY_H
 #define DIRECTION_DUAL 0
 
 #define ROAD_WIDTH 10
-#define CROSS_WIDTH 20 
+#define CROSS_WIDTH 16
+/**********************************************New************************************************/ 
+#define LANE_WIDTH 4
+#define DEFAULT_LANE_NUM 2
+/*************************************************************************************************/
 
 #define RADIUS_A 6378140
 #define RADIUS_B 6356755
@@ -29,8 +33,55 @@ trace_load_func#ifndef GEOMETRY_H
 #define DEFAULT_CELLSIZE 150
 
 #undef M_PI
-#define M_PI 3.1415926
+#define M_PI 3.141592653
 
+/**********************************************New***********************************************/
+struct crossLane
+{
+	struct Duallist vehicles;
+	
+	struct Point fromPoint, toPoint;
+	struct Lane *fromLane;
+	struct Road *toRoad;
+	double length;
+
+};
+
+
+struct Lane
+{
+  struct Duallist vehicles;
+  struct Duallist Points;
+  struct Duallist crossLanes;
+  char type;
+  struct Road *onRoad;
+};
+
+void Lane_dump_func(FILE *fOutput, struct Lane *aLane);
+struct Lane* lane_load_func(FILE *fInput);
+void setup_lanes(struct Road *newRoad, int lane_num);
+
+struct Lane_line
+{
+  struct Duallist Points;
+};
+
+void Lane_line_dump_func(FILE *fOutput, struct Lane_line *aLane_line);
+struct Lane_line* lane_line_load_func(FILE *fInput);
+void setup_lane_lines(struct Road *newRoad, int lane_num);
+
+struct Trafficlight
+{
+  char state;
+  int duration[3];
+  int timer;
+};
+
+
+void Trafficlight_dump_func(FILE *fInput, struct Road *aRoad);
+void setup_traffic_lights(struct Road *newRoad);
+void Trafficlight_load_func(FILE *fInput, struct Road *newRoad);
+/************************************************************************************************/
 struct Segment
 {
   struct Point aPoint;
@@ -81,7 +132,8 @@ struct Cross
 
   struct Duallist inRoads;
   struct Duallist outRoads;
-
+  struct Duallist inOrderRoads;
+  struct Duallist outOrderRoads;
   struct Duallist refs;
   double range;
 
@@ -139,6 +191,13 @@ struct Road
   struct Duallist refs;
   struct Duallist slides;
   double nSamples;
+  /*********************/
+  struct Point headPoint, tailPoint;
+  struct Duallist lanes;
+  struct Duallist lane_lines;
+  struct Duallist waittingV;
+  struct Trafficlight lights[3];
+  /*********************/
 };
 
 int road_equal_func(struct Road *aRoad, struct Road *bRoad);
@@ -218,6 +277,10 @@ struct Cell
   struct Duallist displays;
   struct Item *at;
   double countdown; 
+
+  /* variables for mmwave simulation*/
+  struct Duallist cars;
+
 };
 int cell_equal_func(struct Cell *aCell, struct Cell *bCell);
 int cell_has_nos(char *nos, struct Cell *aCell);
@@ -288,8 +351,8 @@ void setup_roads_and_crosses_in_region(struct Region *region);
 void check_max_degree(struct Region *region);
 
 void read_all_road_records(FILE *froad, FILE *froadAttr, struct Region *region);
-void add_road_rcd_to_region(struct Polyline_record *rcd, struct Region *region);
-void setup_road (struct Road *newRoad, struct Region *region);
+void add_road_rcd_to_region(struct Polyline_record *rcd, struct Region *region, int lane_num);
+void setup_road (struct Road *newRoad, struct Region *region, int lane_num);
 void setup_road_slides(struct Road *aRoad, int nSlides);
 void link_road(struct Road *newRoad, struct Duallist *roadList);
 void link_cross(struct Cross *newCross, struct Duallist *crossList);
@@ -364,4 +427,8 @@ double distance_to_head_cross(struct Road *aRoad, struct Point *fromPoint);
 
 void remove_road(struct Region *aRegion, struct Road *aRoad);
 void remove_cross(struct Region *aRegion, struct Cross *currentCross);
+
+void add_road_inorder(struct Item *crossItem, struct Road *newRoad, struct Duallist *roadlist, int angle);
+void add_road_order(struct Item *crossItem, struct Road *newRoad, struct Duallist *roadlist, int angle);
+void add_point_in_order(struct Item *crossItem, struct Point *newPoint, struct Duallist *points, double angle);
 #endif

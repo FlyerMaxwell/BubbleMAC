@@ -1,4 +1,0 @@
-libigraph_la-fortran_intrinsics.lo: fortran_intrinsics.c \
- /usr/lib/gcc/x86_64-redhat-linux/4.6.3/include/float.h
-
-/usr/lib/gcc/x86_64-redhat-linux/4.6.3/include/float.h:

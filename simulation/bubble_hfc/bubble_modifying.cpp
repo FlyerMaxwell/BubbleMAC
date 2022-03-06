@@ -81,7 +81,7 @@ int main(int argc, char *argv[]) {
                         double dis = vehicleDistance(cur_vehicle, target_vehicle);
                         if (cur_vehicle->isQueueing && cur_packet->isQueueing && cur_packet->slot_resource_oneHop_snapShot[cur_packet->slot] == cur_vehicle->id){ 
                             //1:two cars in one queue*****************************筛选不完全
-                            
+                            //按前后分??
                             if (dis > safeDistance(cur_vehicle, NULL)){
                                 if(curInFront(cur_vehicle, target_vehicle)){    //cur_vehicle becomes the new tail of right queue
                                     cur_vehicle->slot_occupied = TAIL;
@@ -217,7 +217,7 @@ int main(int argc, char *argv[]) {
             cout<<"Vehicles have been Updated."<<endl;
         }
 
-        int cur_slot = slot % SlotPerFrame;
+        
 
 
         
