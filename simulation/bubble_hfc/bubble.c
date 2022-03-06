@@ -144,10 +144,7 @@ int main(int argc, char *argv[]) {
         const double BRAKE_COE = 0.5;
         
 
-        
-
-
-        //Thirdly, determine TX & RX-----test to mergeasdad
+        //Thirdly, determine TX & RX
   
     }
 
