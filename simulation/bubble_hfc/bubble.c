@@ -147,7 +147,7 @@ int main(int argc, char *argv[]) {
         
 
 
-        //Thirdly, determine TX & RX-----test to merge
+        //Thirdly, determine TX & RX-----test to mergeasdad
   
     }
 
