@@ -3,7 +3,6 @@
 // #include <iostream>
 // using namespace std;
 //--------------YX below--------------------------------------//
-
 int init_simulation(struct Region* region){
 	struct Item *aItem;
 	struct Cell *aCell;
@@ -16,9 +15,10 @@ int init_simulation(struct Region* region){
 			aItem = aCell->cars.head;
 			while (aItem != NULL){
 				aCar = (struct vehicle*)aItem->datap;
-
 //-----------------------需要初始化的内容---------------------------//
 				aCar->handled = 0;	
+
+//-----------------------需要初始化的内容---------------------------//
                 aItem = aItem->next;	
 			}
 		}
@@ -386,13 +386,6 @@ void insertFrontRear(struct vehicle *aCar, struct packet *pkt){
 
 //----------------------YX above---------------------//
 
-
-
-
-
-
-
-
 int randSlot(int* occupied, int div){
 	int len = SlotPerFrame - 2, start = 0;
 	int ret = 0;
@@ -640,228 +633,228 @@ void applyForSlot(struct vehicle* cur_vehicle){
 //bubblle MAC, to determine slot and communication range.
 void bubble_mac_protocol(struct Region* aRegion){
 
-            struct Cell *aCell, *nCell;
-            struct Item *aItem, *nItem;
-            struct vehicle* cur_vehicle;
+    struct Cell *aCell, *nCell;
+    struct Item *aItem, *nItem;
+    struct vehicle* cur_vehicle;
 
-            for(int i = 0; i<aRegion->hCells; i++){         //determine slot
-                for(int j = 0; j<aRegion->vCells;j++) {
-                    aCell = aRegion->mesh + i*aRegion->vCells + j;
-                    if (aCell->cars.head == NULL) continue;
-                    aItem = aCell->cars.head;
-                    while(aItem!=NULL){
-                        cur_vehicle = (struct vehicle*)aItem->datap;
-                        switch(cur_vehicle->car_role){
-                            case ROLE_SINGLE:{
-                                if(cur_vehicle->slot_condition == 0){   //单车无申请
-                                    cur_vehicle->slot_occupied = rand()%(SlotPerFrame - 1) + 1;
-                                    cur_vehicle->slot_condition = 1;
-                                }
-                                else if(cur_vehicle->slot_condition == 1){  //单车申请时槽
-                                    if(cur_vehicle->packets.head == NULL){
-                                        cur_vehicle->slot_occupied = rand()%(SlotPerFrame - 1) + 1; //无人回复，单车随机一个新时槽
-                                    }
-                                    else{           //Merge
-                                        for(struct Item* p = cur_vehicle->packets.head; p != NULL; p = p->next){
-                                            struct packet* cur_packet = (struct packet*)p->datap;
-                                            struct vehicle* target_vehicle = cur_packet->srcVehicle;
-                                            double dis = vehicleDistance(cur_vehicle, target_vehicle);
-                                            
-                                            if(curInFront(cur_vehicle, target_vehicle)){ //当前车在前，申请成为新车头
-                                                cur_vehicle->slot_occupied = HEAD_SLOT;
-                                                cur_vehicle->slot_condition = 1;
-                                                cur_vehicle->car_role = ROLE_HEAD;
-                                                cur_vehicle->commRadius = max(safeDistance(cur_vehicle, NULL), dis);
-                                                cur_vehicle->radius_flag = true;
-
-                                                cur_vehicle->slot_oneHop[HEAD_SLOT] = cur_vehicle->id;
-
-                                                if(target_vehicle->car_role == ROLE_SINGLE){
-                                                    cur_vehicle->slot_oneHop[TAIL_SLOT] = target_vehicle->id;
-                                                }
-
-                                            }
-                                            else{                                       //当前车在后，申请成为新车尾
-                                                cur_vehicle->slot_occupied = TAIL_SLOT;
-                                                cur_vehicle->slot_condition = 1;
-                                                cur_vehicle->car_role = ROLE_TAIL;
-                                                cur_vehicle->commRadius = min(safeDistance(cur_vehicle, target_vehicle), dis);
-                                                cur_vehicle->radius_flag = true;
-                                            
-                                                cur_vehicle->slot_oneHop[TAIL_SLOT] = cur_vehicle->id;
-
-                                                if(target_vehicle->car_role == ROLE_SINGLE){
-                                                    cur_vehicle->slot_oneHop[HEAD_SLOT] = target_vehicle->id;
-                                                }
-
-                                            }
-                                            break;                                       
-                                        }
-                                    }
-                                }
-                                
-                                break;
-                            }
-                            case ROLE_HEAD:{
-                                if(cur_vehicle->packets.head = NULL){
-                                    degrade(cur_vehicle);
-                                    break;
-                                }
-                                if(cur_vehicle->slot_condition == 1){   //车头申请时槽
-                                    applyForSlot(cur_vehicle);
-                                }
-                                else{   //车头已确认时槽
-                                    for(struct Item* p = cur_vehicle->packets.head; p != NULL; p = p->next){        //申请成功
-                                        struct packet* cur_packet = (struct packet*)p->datap;
-                                        struct vehicle* target_vehicle = cur_packet->srcVehicle;
-                                        double dis = vehicleDistance(cur_vehicle, target_vehicle);
-
-                                        if(dis > safeDistance(cur_vehicle, NULL)){  //断链
-                                            degrade(cur_vehicle);
-                                        }
-                                        else if(cur_packet->slot_resource_oneHop_snapShot[HEAD_SLOT] != cur_vehicle->id){   //Merge
-                                            cur_vehicle->slot_occupied = randSlot(cur_vehicle->slot_oneHop, -1);
-                                            cur_vehicle->slot_condition = 1;
-                                            cur_vehicle->car_role = ROLE_MID;
-                                            cur_vehicle->commRadius = min(safeDistance(cur_vehicle, target_vehicle), dis);
-                                            cur_vehicle->radius_flag = true;
-                                            
-                                            cur_vehicle->slot_oneHop[cur_vehicle->slot_occupied] = cur_vehicle->id;
-
-                                            if(target_vehicle->car_role == ROLE_SINGLE){
-                                                cur_vehicle->slot_oneHop[HEAD_SLOT] = target_vehicle->id;
-                                            }                                            
-                                            // function(1, 2, 3, 4, 5, 6)
-                                        }
-                                    }
-                                }
-                                break;
-                            }
-                            case ROLE_TAIL:{
-                                if(cur_vehicle->packets.head = NULL){
-                                    degrade(cur_vehicle);
-                                    break;
-                                }
-                                if(cur_vehicle->slot_condition == 1){//车尾申请时槽
-                                    applyForSlot(cur_vehicle);
-                                }
-                                else{//车尾已确认时槽
-                                    for(struct Item* p = cur_vehicle->packets.head; p != NULL; p = p->next){        //申请成功
-                                        struct packet* cur_packet = (struct packet*)p->datap;
-                                        struct vehicle* target_vehicle = cur_packet->srcVehicle;
-                                        double dis = vehicleDistance(cur_vehicle, target_vehicle);
-
-                                        if(dis > safeDistance(cur_vehicle, NULL)){  //断链
-                                            degrade(cur_vehicle);                                     
-                                        }
-                                        else if(cur_packet->slot_resource_oneHop_snapShot[HEAD_SLOT] != cur_vehicle->id){   //Merge
-                                            cur_vehicle->slot_occupied = randSlot(cur_vehicle->slot_twoHop, 1);    //车尾扩张通信半径，用twoHop
-                                            cur_vehicle->slot_condition = 1;
-                                            cur_vehicle->car_role = ROLE_MID;
-                                            cur_vehicle->commRadius = max(safeDistance(cur_vehicle, target_vehicle), dis);
-                                            cur_vehicle->radius_flag = true;
-                                            
-                                            cur_vehicle->slot_oneHop[cur_vehicle->slot_occupied] = cur_vehicle->id;
-
-                                            if(target_vehicle->car_role == ROLE_SINGLE){
-                                                cur_vehicle->slot_oneHop[TAIL_SLOT] = target_vehicle->id;
-                                            }                                            
-                                        }
-                                    }
-                                }
-                                break;
-                            }
-                            case ROLE_MID:{
-                                if(cur_vehicle->packets.head = NULL){
-                                    degrade(cur_vehicle);
-                                    break;
-                                }
-                                if(cur_vehicle->slot_condition == 1){//车中申请时槽
-                                    applyForSlot(cur_vehicle);
-                                }
-                                else{//车中已确认时槽
-                                        for(struct Item* p = cur_vehicle->packets.head; p != NULL; p = p->next){        //申请成功
-                                        struct packet* cur_packet = (struct packet*)p->datap;
-                                        struct vehicle* target_vehicle = cur_packet->srcVehicle;
-                                        double dis = vehicleDistance(cur_vehicle, target_vehicle);
-
-                                        if(dis > safeDistance(cur_vehicle, NULL)){  //断链
-                                            if(curInFront(cur_vehicle, target_vehicle)){
-                                                cur_vehicle->slot_occupied = TAIL_SLOT;     
-                                                cur_vehicle->slot_condition = 1;
-                                                cur_vehicle->car_role = ROLE_TAIL;
-
-                                                struct vehicle* front = (struct vehicle*)cur_vehicle->frontV.head->datap;
-                                                
-                                                cur_vehicle->commRadius = min(safeDistance(cur_vehicle, front),vehicleDistance(cur_vehicle, front));
-                                                cur_vehicle->radius_flag = true;
-
-                                                cur_vehicle->slot_oneHop[cur_vehicle->slot_occupied] = cur_vehicle->id;
-                                            }
-                                            else{
-                                                cur_vehicle->slot_occupied = HEAD_SLOT;
-                                                cur_vehicle->slot_condition = 1;
-                                                cur_vehicle->car_role = ROLE_HEAD;
-
-                                                struct vehicle* rear = (struct vehicle*)cur_vehicle->frontV.head->datap;
-                                                
-                                                cur_vehicle->commRadius = max(safeDistance(cur_vehicle, rear), vehicleDistance(cur_vehicle, rear));
-                                                cur_vehicle->radius_flag = true;
-
-                                                cur_vehicle->slot_oneHop[cur_vehicle->slot_occupied] = cur_vehicle->id;
-                                            }
-                                        }
-                                    }
-                                }
-                                break;
-                            }
-                            default: {printf("default\n");break;}
+    for(int i = 0; i<aRegion->hCells; i++){         //determine slot
+        for(int j = 0; j<aRegion->vCells;j++) {
+            aCell = aRegion->mesh + i*aRegion->vCells + j;
+            if (aCell->cars.head == NULL) continue;
+            aItem = aCell->cars.head;
+            while(aItem!=NULL){
+                cur_vehicle = (struct vehicle*)aItem->datap;
+                switch(cur_vehicle->car_role){
+                    case ROLE_SINGLE:{
+                        if(cur_vehicle->slot_condition == 0){   //单车无申请
+                            cur_vehicle->slot_occupied = rand()%(SlotPerFrame - 1) + 1;
+                            cur_vehicle->slot_condition = 1;
                         }
-                    
-                    }
-                }
-            }
-            
-            for(int i = 0; i<aRegion->hCells; i++){         //determine comm. radius
-                for(int j = 0; j<aRegion->vCells;j++) {
-                    aCell = aRegion->mesh + i*aRegion->vCells + j;
-                    if (aCell->cars.head == NULL) continue;
-                    aItem = aCell->cars.head;
-                    while(aItem!=NULL){
-                        cur_vehicle = (struct vehicle*)aItem->datap;
+                        else if(cur_vehicle->slot_condition == 1){  //单车申请时槽
+                            if(cur_vehicle->packets.head == NULL){
+                                cur_vehicle->slot_occupied = rand()%(SlotPerFrame - 1) + 1; //无人回复，单车随机一个新时槽
+                            }
+                            else{           //Merge
+                                for(struct Item* p = cur_vehicle->packets.head; p != NULL; p = p->next){
+                                    struct packet* cur_packet = (struct packet*)p->datap;
+                                    struct vehicle* target_vehicle = cur_packet->srcVehicle;
+                                    double dis = vehicleDistance(cur_vehicle, target_vehicle);
+                                    
+                                    if(curInFront(cur_vehicle, target_vehicle)){ //当前车在前，申请成为新车头
+                                        cur_vehicle->slot_occupied = HEAD_SLOT;
+                                        cur_vehicle->slot_condition = 1;
+                                        cur_vehicle->car_role = ROLE_HEAD;
+                                        cur_vehicle->commRadius = max(safeDistance(cur_vehicle, NULL), dis);
+                                        cur_vehicle->radius_flag = true;
+
+                                        cur_vehicle->slot_oneHop[HEAD_SLOT] = cur_vehicle->id;
+
+                                        if(target_vehicle->car_role == ROLE_SINGLE){
+                                            cur_vehicle->slot_oneHop[TAIL_SLOT] = target_vehicle->id;
+                                        }
+
+                                    }
+                                    else{                                       //当前车在后，申请成为新车尾
+                                        cur_vehicle->slot_occupied = TAIL_SLOT;
+                                        cur_vehicle->slot_condition = 1;
+                                        cur_vehicle->car_role = ROLE_TAIL;
+                                        cur_vehicle->commRadius = min(safeDistance(cur_vehicle, target_vehicle), dis);
+                                        cur_vehicle->radius_flag = true;
+                                    
+                                        cur_vehicle->slot_oneHop[TAIL_SLOT] = cur_vehicle->id;
+
+                                        if(target_vehicle->car_role == ROLE_SINGLE){
+                                            cur_vehicle->slot_oneHop[HEAD_SLOT] = target_vehicle->id;
+                                        }
+
+                                    }
+                                    break;                                       
+                                }
+                            }
+                        }
                         
-                        if(cur_vehicle->radius_flag == true){
-                            cur_vehicle->radius_flag = false;
+                        break;
+                    }
+                    case ROLE_HEAD:{
+                        if(cur_vehicle->packets.head = NULL){
+                            degrade(cur_vehicle);
+                            break;
                         }
-                        else{
-                            switch (cur_vehicle->car_role){
-                                case ROLE_SINGLE:{
-                                    cur_vehicle->commRadius = safeDistance(cur_vehicle, NULL);
-                                    break;
+                        if(cur_vehicle->slot_condition == 1){   //车头申请时槽
+                            applyForSlot(cur_vehicle);
+                        }
+                        else{   //车头已确认时槽
+                            for(struct Item* p = cur_vehicle->packets.head; p != NULL; p = p->next){        //申请成功
+                                struct packet* cur_packet = (struct packet*)p->datap;
+                                struct vehicle* target_vehicle = cur_packet->srcVehicle;
+                                double dis = vehicleDistance(cur_vehicle, target_vehicle);
+
+                                if(dis > safeDistance(cur_vehicle, NULL)){  //断链
+                                    degrade(cur_vehicle);
                                 }
-                                case ROLE_HEAD:{
-                                    cur_vehicle->commRadius = safeDistance(cur_vehicle, NULL);
-                                    break;
-                                }
-                                case ROLE_TAIL:{
-                                    if(cur_vehicle->frontV.head != NULL){
-                                        cur_vehicle->commRadius = vehicleDistance(cur_vehicle, (struct vehicle*)cur_vehicle->frontV.head->datap);
-                                    }
-                                    break;
-                                }
-                                case ROLE_MID:{
-                                    if(cur_vehicle->frontV.head != NULL && cur_vehicle->rearV.head != NULL){
-                                        cur_vehicle->commRadius = max(vehicleDistance(cur_vehicle, (struct vehicle*)cur_vehicle->frontV.head->datap),
-                                                                        vehicleDistance(cur_vehicle, (struct vehicle*)cur_vehicle->rearV.head->datap));
-                                    }
-                                    break;
+                                else if(cur_packet->slot_resource_oneHop_snapShot[HEAD_SLOT] != cur_vehicle->id){   //Merge
+                                    cur_vehicle->slot_occupied = randSlot(cur_vehicle->slot_oneHop, -1);
+                                    cur_vehicle->slot_condition = 1;
+                                    cur_vehicle->car_role = ROLE_MID;
+                                    cur_vehicle->commRadius = min(safeDistance(cur_vehicle, target_vehicle), dis);
+                                    cur_vehicle->radius_flag = true;
+                                    
+                                    cur_vehicle->slot_oneHop[cur_vehicle->slot_occupied] = cur_vehicle->id;
+
+                                    if(target_vehicle->car_role == ROLE_SINGLE){
+                                        cur_vehicle->slot_oneHop[HEAD_SLOT] = target_vehicle->id;
+                                    }                                            
+                                    // function(1, 2, 3, 4, 5, 6)
                                 }
                             }
                         }
+                        break;
+                    }
+                    case ROLE_TAIL:{
+                        if(cur_vehicle->packets.head = NULL){
+                            degrade(cur_vehicle);
+                            break;
+                        }
+                        if(cur_vehicle->slot_condition == 1){//车尾申请时槽
+                            applyForSlot(cur_vehicle);
+                        }
+                        else{//车尾已确认时槽
+                            for(struct Item* p = cur_vehicle->packets.head; p != NULL; p = p->next){        //申请成功
+                                struct packet* cur_packet = (struct packet*)p->datap;
+                                struct vehicle* target_vehicle = cur_packet->srcVehicle;
+                                double dis = vehicleDistance(cur_vehicle, target_vehicle);
+
+                                if(dis > safeDistance(cur_vehicle, NULL)){  //断链
+                                    degrade(cur_vehicle);                                     
+                                }
+                                else if(cur_packet->slot_resource_oneHop_snapShot[HEAD_SLOT] != cur_vehicle->id){   //Merge
+                                    cur_vehicle->slot_occupied = randSlot(cur_vehicle->slot_twoHop, 1);    //车尾扩张通信半径，用twoHop
+                                    cur_vehicle->slot_condition = 1;
+                                    cur_vehicle->car_role = ROLE_MID;
+                                    cur_vehicle->commRadius = max(safeDistance(cur_vehicle, target_vehicle), dis);
+                                    cur_vehicle->radius_flag = true;
+                                    
+                                    cur_vehicle->slot_oneHop[cur_vehicle->slot_occupied] = cur_vehicle->id;
+
+                                    if(target_vehicle->car_role == ROLE_SINGLE){
+                                        cur_vehicle->slot_oneHop[TAIL_SLOT] = target_vehicle->id;
+                                    }                                            
+                                }
+                            }
+                        }
+                        break;
+                    }
+                    case ROLE_MID:{
+                        if(cur_vehicle->packets.head = NULL){
+                            degrade(cur_vehicle);
+                            break;
+                        }
+                        if(cur_vehicle->slot_condition == 1){//车中申请时槽
+                            applyForSlot(cur_vehicle);
+                        }
+                        else{//车中已确认时槽
+                                for(struct Item* p = cur_vehicle->packets.head; p != NULL; p = p->next){        //申请成功
+                                struct packet* cur_packet = (struct packet*)p->datap;
+                                struct vehicle* target_vehicle = cur_packet->srcVehicle;
+                                double dis = vehicleDistance(cur_vehicle, target_vehicle);
+
+                                if(dis > safeDistance(cur_vehicle, NULL)){  //断链
+                                    if(curInFront(cur_vehicle, target_vehicle)){
+                                        cur_vehicle->slot_occupied = TAIL_SLOT;     
+                                        cur_vehicle->slot_condition = 1;
+                                        cur_vehicle->car_role = ROLE_TAIL;
+
+                                        struct vehicle* front = (struct vehicle*)cur_vehicle->frontV.head->datap;
+                                        
+                                        cur_vehicle->commRadius = min(safeDistance(cur_vehicle, front),vehicleDistance(cur_vehicle, front));
+                                        cur_vehicle->radius_flag = true;
+
+                                        cur_vehicle->slot_oneHop[cur_vehicle->slot_occupied] = cur_vehicle->id;
+                                    }
+                                    else{
+                                        cur_vehicle->slot_occupied = HEAD_SLOT;
+                                        cur_vehicle->slot_condition = 1;
+                                        cur_vehicle->car_role = ROLE_HEAD;
+
+                                        struct vehicle* rear = (struct vehicle*)cur_vehicle->frontV.head->datap;
+                                        
+                                        cur_vehicle->commRadius = max(safeDistance(cur_vehicle, rear), vehicleDistance(cur_vehicle, rear));
+                                        cur_vehicle->radius_flag = true;
+
+                                        cur_vehicle->slot_oneHop[cur_vehicle->slot_occupied] = cur_vehicle->id;
+                                    }
+                                }
+                            }
+                        }
+                        break;
+                    }
+                    default: {printf("default\n");break;}
+                }
             
-            
+            }
+        }
+    }
+    
+    for(int i = 0; i<aRegion->hCells; i++){         //determine comm. radius
+        for(int j = 0; j<aRegion->vCells;j++) {
+            aCell = aRegion->mesh + i*aRegion->vCells + j;
+            if (aCell->cars.head == NULL) continue;
+            aItem = aCell->cars.head;
+            while(aItem!=NULL){
+                cur_vehicle = (struct vehicle*)aItem->datap;
+                
+                if(cur_vehicle->radius_flag == true){
+                    cur_vehicle->radius_flag = false;
+                }
+                else{
+                    switch (cur_vehicle->car_role){
+                        case ROLE_SINGLE:{
+                            cur_vehicle->commRadius = safeDistance(cur_vehicle, NULL);
+                            break;
+                        }
+                        case ROLE_HEAD:{
+                            cur_vehicle->commRadius = safeDistance(cur_vehicle, NULL);
+                            break;
+                        }
+                        case ROLE_TAIL:{
+                            if(cur_vehicle->frontV.head != NULL){
+                                cur_vehicle->commRadius = vehicleDistance(cur_vehicle, (struct vehicle*)cur_vehicle->frontV.head->datap);
+                            }
+                            break;
+                        }
+                        case ROLE_MID:{
+                            if(cur_vehicle->frontV.head != NULL && cur_vehicle->rearV.head != NULL){
+                                cur_vehicle->commRadius = max(vehicleDistance(cur_vehicle, (struct vehicle*)cur_vehicle->frontV.head->datap),
+                                                                vehicleDistance(cur_vehicle, (struct vehicle*)cur_vehicle->rearV.head->datap));
+                            }
+                            break;
+                        }
                     }
                 }
+    
+    
             }
+        }
+    }
 
 }

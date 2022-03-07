@@ -20,8 +20,9 @@ int main(int argc, char *argv[]) {
     FILE *fsource;
     struct Region *aRegion = NULL;
     struct Duallist AllCollisions;
-    int seq_num = 3, traffic_density = 40;
 
+    //默认参数
+    int seq_num = 3, traffic_density = 40;
     char usedMap[20]="three_lane.map"; 
     
     // if (argc == 1) {
@@ -53,11 +54,10 @@ int main(int argc, char *argv[]) {
             printf("slot = %d\n", slot);
         }
         
-
         // // Determine the slot and comm. range at the beginning of each frame
-        // if(slot % SlotPerFrame == 0){
-        //     bubble_mac_protocol(aRegion);
-        // }
+        if(slot % SlotPerFrame == 0){
+            bubble_mac_protocol(aRegion);
+        }
 
         // //handle the transmitter at each slot
         // handle_transmitter(aRegion, &AllCollisions, slot);
