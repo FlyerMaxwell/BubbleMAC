@@ -12,6 +12,8 @@
 #include "parameters.h"
 #include "log_result.h"
 #include <unordered_map>
+#include <iostream>
+
 using namespace std;
 
 //---bubble updated by YX----//

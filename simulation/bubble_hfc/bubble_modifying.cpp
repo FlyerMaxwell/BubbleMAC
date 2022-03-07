@@ -192,6 +192,7 @@ int main(int argc, char *argv[]) {
                                     if(target_vehicle->car_role == ROLE_SINGLE){
                                         cur_vehicle->slot_oneHop[HEAD_SLOT] = target_vehicle->id;
                                     }                                            
+                                    // function(1, 2, 3, 4, 5, 6)
                                 }
                             }
                         }
@@ -277,7 +278,7 @@ int main(int argc, char *argv[]) {
                     }
                     default: {printf("default\n");break;}
                 }
-
+            }
             //     //*********************************************separate line*********************************************
             //     if(cur_vehicle->slot_occupied != NOT_OCCUPIED){
             //         if (cur_vehicle->packets.head == NULL){
@@ -429,13 +430,15 @@ int main(int argc, char *argv[]) {
                     }
                 }
             }
+            
         }
         else if(slot % UpLocSlot == 0){ //Update the vehicle info. per 5 ms
             
             cout<<"Updating vehilces..."<<endl;
-            read_and_compare(allCars);
+            // read_and_compare(allCars);
             cout<<"Vehicles have been Updated."<<endl;
         }
+        
 
         //-------Communication with selected communication range and slot--------//
         //handle the transmitter 检查通信半径范围内的车，如果 

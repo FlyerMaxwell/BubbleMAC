@@ -1,7 +1,7 @@
-#pragma once
+// #pragma once
 #include "function.h"
 #include <iostream>
-
+// using namespace std;
 //--------------YX below--------------------------------------//
 int init_simulation(struct Region* region){
 	struct Item *aItem;
@@ -16,7 +16,35 @@ int init_simulation(struct Region* region){
 			while (aItem != NULL){
 				aCar = (struct vehicle*)aItem->datap;
 //-----------------------需要初始化的内容---------------------------//
-                
+                  	aCar->id = -1;               // id of the car
+					aCar->handled = 0;                  //  to indicate whether the car has been updated during this time
+					aCar->position = 0, aCar->positionNew = 0;	// distance from the head of road before update  
+					aCar->v = 0, aCar->vnext = 0;		// the velocity of the vehicle
+					aCar->vmax = 0;		// the max velocity of the vehicle
+					aCar->a = 0;		// the accelration of the vehicle, regard as constant
+					aCar->b = 0;		// the decelration of the vehicle, regard as constant
+					aCar->x = 0;
+					aCar->y = 0;
+					aCar->belongLane = NULL;
+					aCar->pathInfo = NULL;
+					aCar->currentRoadItem = NULL;
+
+					//varaibles fpr bubble MAC
+					aCar->belongLaneID = -1;
+					aCar->slot_occupied = 1;  //
+					aCar->slot_condition = 0; //0 for no slot occupied, 1 for accessing slots and 2 for occupied already.
+					aCar->slot_oneHop = NULL;
+					aCar->slot_twoHop = NULL;
+					aCar->isExpansion = false;
+					aCar->car_role = ROLE_SINGLE;
+					aCar->radius_flag = 0;
+					aCar->isQueueing = 0;
+					aCar->commRadius = 0;
+					aCar->dir_x = 0, aCar->dir_y = 0; //车辆的方向矢量(dir_x, dir_y)。可调用IsFront(struct vehicle *aCar, struct vehicle *tCar)判断车辆间位置
+					duallist_init(&aCar->packets);
+					duallist_init(&aCar->neighbours);
+					duallist_init(&aCar->frontV);
+					duallist_init(&aCar->rearV);	//store the front neighbors and rear neighbors according to the received packets.
 			}
 		}
 	}
@@ -57,40 +85,40 @@ void handle_neighbors(struct Region* region){
 
 
 
-void handle_transmitter(struct Region* region, struct Duallist *Collisions, int slot){
-    struct Cell *aCell;
-    struct Item *aItem, *bItem;
-    struct vehicle *aCar, *bCar;
-    struct neighbour_car* bneigh;
+// void handle_transmitter(struct Region* region, struct Duallist *Collisions, int slot){
+//     struct Cell *aCell;
+//     struct Item *aItem, *bItem;
+//     struct vehicle *aCar, *bCar;
+//     struct neighbour_car* bneigh;
 
-    for(int i = 0; i<region->hCells; i++){       
-        for(int j = 0; j<region->vCells;j++) {
-            aCell = region->mesh + i*region->vCells + j;
-            aItem = aCell->cars.head;
-            while (aItem != NULL){
-                aCar = (struct vehicle*)aItem->datap;
-                if(aCar->slot_occupied != slot) continue; //忽略掉receiver
+//     for(int i = 0; i<region->hCells; i++){       
+//         for(int j = 0; j<region->vCells;j++) {
+//             aCell = region->mesh + i*region->vCells + j;
+//             aItem = aCell->cars.head;
+//             while (aItem != NULL){
+//                 aCar = (struct vehicle*)aItem->datap;
+//                 if(aCar->slot_occupied != slot) continue; //忽略掉receiver
 
-                bItem = (struct Item*)aCar->neighbours.head;
-                while (bItem != NULL) {
-                    bCar =  (struct vehicle*)bItem->datap;
-                    if(aCar->commRadius < distance_with_neighbor(aCar, bCar)) continue;   //超出通信半径
-                    else{
-                        if(bCar->slot_occupied == aCar->slot_occupied){
-                            struct collision* coli =  generate_collision(aCar,bCar,0,slot);
-                            duallist_add_to_tail(Collisions, coli);
-                        }else{
-                            struct packet* pkt = generate_packet(aCar,slot);
-                            duallist_add_to_tail(&(bCar->packets), pkt);
-                        }                           
-                    }
-                    bItem = bItem->next;
-                }
-                aItem = aItem->next;
-            }
-        }
-    }
-}
+//                 bItem = (struct Item*)aCar->neighbours.head;
+//                 while (bItem != NULL) {
+//                     bCar =  (struct vehicle*)bItem->datap;
+//                     if(aCar->commRadius < distance_with_neighbor(aCar, bCar)) continue;   //超出通信半径
+//                     else{
+//                         if(bCar->slot_occupied == aCar->slot_occupied){
+//                             struct collision* coli =  generate_collision(aCar,bCar,0,slot);
+//                             duallist_add_to_tail(Collisions, coli);
+//                         }else{
+//                             struct packet* pkt = generate_packet(aCar,slot);
+//                             duallist_add_to_tail(&(bCar->packets), pkt);
+//                         }                           
+//                     }
+//                     bItem = bItem->next;
+//                 }
+//                 aItem = aItem->next;
+//             }
+//         }
+//     }
+// }
 
 void handle_receiver(struct Region* region, struct Duallist* Collisions, int slot){
     struct Cell *aCell;
@@ -571,83 +599,6 @@ void update_trans_rate(struct Region *region)
 	return;
 }
 
-void calculate_rate(struct Region *region)
-{
-
-  int flag, i, j, k, l;
-  struct Cell *aCell, *bCell;
-  struct Item *aItem, *bItem, *tItem, *nItem;
-  struct vehicle *bCar, *aCar, *tCar, *nCar;
-  struct neighbour_car* tNeigh, *nNeigh, *bNeigh;
-  double path_loss, delta_angle, control_delta_angle, misalign_loss, scan_misalign_loss, gain_loss, SNR_dB, tmp_rate;
-  int SNR;
-  int avg_rate;
-
-	for(i = 0; i<region->hCells; i++){       
-		for(j = 0; j<region->vCells;j++) {
-			aCell = region->mesh + i*region->vCells + j;
-			if (aCell->cars.head == NULL) continue;
-
-			aItem = aCell->cars.head;
-			while (aItem != NULL){
-				aCar = (struct vehicle*)aItem->datap;
-				//if (aCar->role !=2) {aItem = aItem->next; continue;}
-				bItem = aCar->neighbours.head;
-				avg_rate =0;
-				while (bItem != NULL){
-					bNeigh = (struct neighbour_car*)bItem->datap;
-					bCar = (struct vehicle*)bNeigh->carItem->datap;
-
-					bNeigh->dis = calculate_dis(aCar->x1, aCar->y1, bCar->x1, bCar->y1);
-					bNeigh->angle = angle_between(aCar->x1, aCar->y1, bCar->x1, bCar->y1);
-
-					/*calculate Control SNR & Link SNR*/
-					path_loss = 17.7*log10(bNeigh->dis)+70+15*bNeigh->dis/1000;  //dB
-
-					delta_angle = abs(bNeigh->beam_index*min_scan_interval-bNeigh->angle);
- 					control_delta_angle = abs(bNeigh->scan_beam_index*scan_theta-bNeigh->angle);
-
-					misalign_loss = 10*(2.4*pow(delta_angle,2)/pow(min_beam_width,2));  //dB
-					scan_misalign_loss = 10*(1.2*pow(control_delta_angle,2)/pow(scan_alpha,2)+1.2*pow(control_delta_angle,2)/pow(scan_beta,2));  //dB
-
-					SNR_dB = radio_gain-path_loss-misalign_loss-noise_power; //dB
-					gain_loss = 10*log10(scan_alpha/min_beam_width)+10*log10(scan_beta/min_beam_width);
-					bNeigh->control_SNR = radio_gain-path_loss-scan_misalign_loss-noise_power-gain_loss; //dB
-					bNeigh->SNR = SNR_dB;
-					SNR = (int)SNR_dB;
-					//tmp_rate = 270.0*log(1+SNR)/log(2); //Shannon formula
-
-					if (SNR >= 21) bNeigh->data_rate = 606;         //MCS12 (10Byte/10us)
-					else if (SNR >= 20) bNeigh->data_rate = 505;    //MCS11
-					else if (SNR >= 19) bNeigh->data_rate = 404;    //MCS10
-					else if (SNR >= 15) bNeigh->data_rate = 328;    //MCS9
-					else if (SNR >= 13) bNeigh->data_rate = 303;    //MCS8
-					else if (SNR >= 12) bNeigh->data_rate = 252;    //MCS7
-					else if (SNR >= 11) bNeigh->data_rate = 202;    //MCS6
-					//else if (SNR >= 12) bNeigh->data_rate = 156;    //MCS5
-					else if (SNR >= 10) bNeigh->data_rate = 151;    //MCS4
-					else if (SNR >= 9) bNeigh->data_rate = 126;    //MCS3	
-					else if (SNR >= 7)  bNeigh->data_rate = 101;    //MCS2
-					else if (SNR >= 6)  bNeigh->data_rate = 50;     //MCS1
-					else bNeigh->data_rate = 0;
-					
-					//printf("angle: %.1lf, dis: %.1lf, path loss: %.1lf, misalign loss: %.1lf, beam index:%d, SNR: %.1lfdB, data rate: %d\n",bNeigh->angle, bNeigh->dis, path_loss, misalign_loss, bNeigh->beam_index, SNR_dB, bNeigh->data_rate);
-					avg_rate += bNeigh->data_rate;
-					bItem = bItem->next;
-				}
-				if (aCar->neighbours.nItems !=0){
-					avg_rate = avg_rate/aCar->neighbours.nItems;
-					//printf("neighbour num: %d, average data rate: %d\n", aCar->neighbours.nItems, avg_rate);
-				}
-				aItem = aItem->next;
-			}
-		}
-
-	}
-
-	if (bi_num %200==0) {log_neighbour(region);}
-	return;
-}
 
 int show_graph_degree(struct Region *region)
 {
@@ -719,9 +670,9 @@ int car_legal(struct Region *region, struct vehicle *aCar, struct Cell *aCell)
 
 double safeDistance(const struct vehicle* v1, const struct vehicle* v2){
 	if(v2 == NULL){
-		return ((v1->v * v1->v))/(2 * v1->b));
+		return ((v1->v * v1->v)/(2 * v1->b));
 	}
-	return ((v1->v * v1->v) - (v2->v * v2->v))/(2 * v1->b));
+	return (v1->v * v1->v - v2->v * v2->v)/(2 * v1->b * BRAKE_COE);
 }
 
 double vehicleDistance(const struct vehicle* v1, const struct vehicle* v2){
@@ -734,8 +685,9 @@ bool curInFront(const struct vehicle* cur, const struct vehicle* tar){
 }
 
 int randSlot(int* occupied, int div){
-	int len = 0, ret = 0;
-	unodered_map<int, int> tab;
+	int len = 0;
+	int ret = 0;
+	unordered_map<int, int> tab;
 	for(int i = 0; i < SlotPerFrame; i++){
 		if(occupied[i] == -1){
 			tab[len++] = i;

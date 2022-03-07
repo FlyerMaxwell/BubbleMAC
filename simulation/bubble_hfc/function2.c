@@ -214,7 +214,16 @@ void insertFrontRear(struct vehicle *aCar, struct packet *pkt){
 		exit(1);
 	}
     if(IsFront(aCar, pkt->srcVehicle)){//pkt来源于前面的一个车
-
+        struct Item* newp = (struct Item*)malloc(sizeof(struct Item));
+	    newp->datap = pkt->srcVehicle;
+        if(aCar->frontV == NULL){//若当前无frontV
+            newp->next = NULL;
+            newp->prev = newp;
+            aCar->frontV.head = newp;
+        }else{
+           if(distance_between_vehicle(aCar, aCar->frontV.head->datap) > distance_between_vehicle(aCar, pkt->srcVehicle))
+                aCar->frontV.head->datap = pkt->srcVehicle;//此包的车为最近的车
+        }
 
     }else{//pkt来源于后面的一个车
 
