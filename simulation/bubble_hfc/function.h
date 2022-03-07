@@ -12,7 +12,7 @@
 #include "parameters.h"
 #include "log_result.h"
 #include <unordered_map>
-
+using namespace std;
 
 //---bubble updated by YX----//
 int init_simulation(struct Region* region);

@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
     int seq_num = 0, traffic_density = 40;
 
     unordered_map<int, struct vehicle*> allCars;
-
+    
     if (argc == 1) {
 	    cout<<"Error: There is no map. Please define a map as:  "<<argv[0]<<" XXX.map"<<endl;
 	    exit(1);
@@ -61,16 +61,60 @@ int main(int argc, char *argv[]) {
             generate_car(aRegion);
             cout<<"Vehicles have been loaded."<<endl;
             
-            // cout<<"Handling neighbors for each vehicle..."<<endl;
-            // handle_neighbour(aRegion);        // 哪些是车辆潜在的neighbors（根据距离，九宫格判断，只需要比较这些车辆，不需要比较整张地图的车辆）
-            // cout<<"Neighbors have been handled."<<endl;
+            cout<<"Handling neighbors for each vehicle..."<<endl;
+            handle_neighbour(aRegion);        // 哪些是车辆潜在的neighbors（根据距离，九宫格判断，只需要比较这些车辆，不需要比较整张地图的车辆）
+            cout<<"Neighbors have been handled."<<endl;
 
             //Secondly, determine the slot as well as comm. radius at the beginning of each frame
             for(auto iter = allCars.begin(); iter != allCars.end(); iter++){    //determine slot
                 struct vehicle* cur_vehicle = iter->second;
                 cur_vehicle->commRadius = 0;
+                //*********************************************separate line*********************************************
+
+                switch(cur_vehicle->car_role){
+                    case ROLE_SINGLE:{
+                        if(cur_vehicle->slot_condition == 0){   //单车无申请
+                            cur_vehicle->
+                        }
+                        else if(cur_vehicle->slot_condition == 1){  //单车申请时槽
+
+                        }
+                        
+                        break;
+                    }
+                    case ROLE_HEAD:{
+                        if(cur_vehicle->slot_condition == 1){   //车头申请时槽
+
+                        }
+                        else{   //车头已确认时槽
+
+                        }
+                        break;
+                    }
+                    case ROLE_TAIL:{
+                        if(cur_vehicle->slot_condition == 1){//车尾申请时槽
+
+                        }
+                        else{//车尾已确认时槽
+
+                        }
+                        break;
+                    }
+                    case ROLE_MID:{
+                        if(cur_vehicle->slot_condition == 1){//车中申请时槽
+
+                        }
+                        else{//车中已确认时槽
+
+                        }
+                        break;
+                    }
+                    default: {printf("default\n");break;}
+                }
+
+                //*********************************************separate line*********************************************
                 if(cur_vehicle->slot_occupied != NOT_OCCUPIED){
-                    if (cur_vehicle->packets == NULL){
+                    if (cur_vehicle->packets.head == NULL){
                         cur_vehicle->slot_occupied = rand()%SlotPerFrame;
                         cur_vehicle->slot_condition = 1;
                         cur_vehicle->isQueueing = false;
@@ -207,6 +251,7 @@ int main(int argc, char *argv[]) {
                 for(auto& p = v.neighbours->head; p != NULL; p = p->next){
                     double temp = max(safeDistance(v, *(p->datap)), distance_in_meter(v, *(p->datap)));
                     v.commRadius = max(v.commRadius, temp);
+                    
                 }
             }
         }

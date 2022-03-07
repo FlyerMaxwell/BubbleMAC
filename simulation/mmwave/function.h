@@ -11,6 +11,7 @@
 #include "trace.h"
 #include "parameters.h"
 #include "log_result.h"
+#include <unordered_map>
 
 int init_simulation(struct Region *region);
 int generate_car(struct Region *region);

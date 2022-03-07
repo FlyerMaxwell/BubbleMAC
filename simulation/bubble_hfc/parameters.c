@@ -8,8 +8,11 @@ int UpLocSlot = 10;
 int SlotPerFrame = 200;
 int NOT_OCCUPIED = -1;
 int SLOT_COLLISION = -2;
-int HEAD = 1;
-int TAIL = SlotPerFrame - 1;
+int HEAD_SLOT = 1;
+int TAIL_SLOT = 199;
+
+
+
 
 //time granularity: 10us as 1
 int Car_Number = 0;

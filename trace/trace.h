@@ -200,11 +200,14 @@ typedef struct vehicle
   int* slot_oneHop;
   int* slot_twoHop;
   bool isExpansion;
-  bool isQueueing;
+  int car_role;
+  int radius_flag;
+  int isQueueing;
   double commRadius;
   double dir_x, dir_y;
   struct Duallist packets;
   struct Duallist neighbours;
+  struct Duallist frontV, rearV; //store the front neighbors and rear neighbors according to the received packets.
 
 
   //variables for mmwave simulation

@@ -5,16 +5,27 @@
 
 #define false 0
 #define true 1
-
-/***********************parameters**********************/
+#define ROLE_SINGLE 0
+#define ROLE_HEAD 1
+#define ROLE_TAIL 2
+#define ROLE_MID 3
+// using namespace std;
+/***********************bubble parameters**********************/
 extern int slot;
 extern double BRAKE_COE;
 extern int UpLocSlot;
 extern int SlotPerFrame;
 extern int NOT_OCCUPIED;
 extern int SLOT_COLLISION;
-extern int HEAD;
-extern int TAIL;
+extern int HEAD_SLOT;
+extern int TAIL_SLOT;
+
+// extern int ROLE_SINGLE;
+// extern int ROLE_HEAD;
+// extern int ROLE_TAIL;
+// extern int ROLE_MID;
+
+
 
 extern int Car_Number;
 extern int BEACON_NUM;
