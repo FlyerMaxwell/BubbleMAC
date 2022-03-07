@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
             cout<<"Vehicles have been loaded."<<endl;
             
             cout<<"Handling neighbors for each vehicle..."<<endl;
-            handle_neighbour(aRegion);        // 哪些是车辆潜在的neighbors（根据距离，九宫格判断，只需要比较这些车辆，不需要比较整张地图的车辆）
+            // handle_neighbour(aRegion);        // 哪些是车辆潜在的neighbors（根据距离，九宫格判断，只需要比较这些车辆，不需要比较整张地图的车辆）
             cout<<"Neighbors have been handled."<<endl;
 
             //Secondly, determine the slot as well as comm. radius at the beginning of each frame
@@ -74,10 +74,41 @@ int main(int argc, char *argv[]) {
                 switch(cur_vehicle->car_role){
                     case ROLE_SINGLE:{
                         if(cur_vehicle->slot_condition == 0){   //单车无申请
-                            cur_vehicle->
+                            cur_vehicle->slot_occupied = rand()%(SlotPerFrame - 1) + 1;
+                            cur_vehicle->slot_condition = 1;
                         }
                         else if(cur_vehicle->slot_condition == 1){  //单车申请时槽
+                            if(cur_vehicle->packets.head == NULL){
+                                cur_vehicle->slot_occupied = rand()%(SlotPerFrame - 1) + 1; //无人回复，单车随机一个新时槽
+                            }
+                            else{
+                                for(struct Item* p = cur_vehicle->packets.head; p != NULL; p = p->next){
+                                    struct packet* cur_packet = (struct packet*)p->datap;
+                                    struct vehicle* target_vehicle = cur_packet->srcVehicle;
+                                    double dis = vehicleDistance(cur_vehicle, target_vehicle);
+                                    if(curInFront(cur_vehicle, target_vehicle)){    //当前车在前，申请成为新车头
+                                        cur_vehicle->slot_occupied = HEAD_SLOT;
+                                        cur_vehicle->car_role = ROLE_HEAD;
+                                        cur_vehicle->slot_condition = 1;
+                                        cur_vehicle->commRadius = max(safeDistance(cur_vehicle, NULL), dis);
+                                        cur_vehicle->radius_flag = true;
 
+                                        cur_vehicle->slot_oneHop[HEAD_SLOT] = cur_vehicle->id;
+                                        cur_vehicle->slot_oneHop[TAIL_SLOT] = target_vehicle->id;
+                                    }
+                                    else{                               //当前车在后，申请成为新车尾
+                                        cur_vehicle->slot_occupied = TAIL_SLOT;
+                                        cur_vehicle->car_role = ROLE_TAIL;
+                                        cur_vehicle->slot_condition = 1;
+                                        cur_vehicle->commRadius = min(safeDistance(cur_vehicle, target_vehicle), dis);
+                                        cur_vehicle->radius_flag = true;
+
+                                        cur_vehicle->slot_oneHop[HEAD_SLOT] = cur_vehicle->id;
+                                        cur_vehicle->slot_oneHop[TAIL_SLOT] = target_vehicle->id;
+                                    }        
+
+                                }
+                            }
                         }
                         
                         break;
