@@ -119,11 +119,7 @@ void handle_receiver(struct Region* region, struct Duallist* Collisions, int slo
                         aCar->slot_twoHop[i] = pkt->slot_resource_oneHop_snapShot[i];//将pkt中携带的OHN信息更新到THN中，不考虑覆盖问题
                     }
                     // 将pkt指向的车更新到frontV, rearV
-                    
-
-
-
-
+                    insertFrontRear(aCar, pkt);
                 }else{//有两个或以上的pkt，产生Collision
                     bItem = (struct Item*)aCar->packets.head;
                     while(bItem!=NULL){
@@ -226,6 +222,16 @@ void insertFrontRear(struct vehicle *aCar, struct packet *pkt){
         }
 
     }else{//pkt来源于后面的一个车
+        struct Item* newp = (struct Item*)malloc(sizeof(struct Item));
+	    newp->datap = pkt->srcVehicle;
+        if(aCar->rearV == NULL){//若当前无rearV
+            newp->next = NULL;
+            newp->prev = newp;
+            aCar->rearV.head = newp;
+        }else{
+           if(distance_between_vehicle(aCar, aCar->rearV.head->datap) > distance_between_vehicle(aCar, pkt->srcVehicle))
+                aCar->rearV.head->datap = pkt->srcVehicle;//此包的车为最近的车
+        }
 
     }
 }

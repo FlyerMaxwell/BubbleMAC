@@ -33,8 +33,8 @@ int init_simulation(struct Region* region){
 					aCar->belongLaneID = -1;
 					aCar->slot_occupied = 1;  //
 					aCar->slot_condition = 0; //0 for no slot occupied, 1 for accessing slots and 2 for occupied already.
-					aCar->slot_oneHop = NULL;
-					aCar->slot_twoHop = NULL;
+					aCar->slot_oneHop = new int[SlotPerFrame];
+					aCar->slot_twoHop = new int[SlotPerFrame];
 					aCar->isExpansion = false;
 					aCar->car_role = ROLE_SINGLE;
 					aCar->radius_flag = 0;
@@ -50,7 +50,6 @@ int init_simulation(struct Region* region){
 	}
 	return 0;
 }
-
 
 //handle neighbors： 处理邻居，将所有车辆的所在的九宫格内的车挂载到其潜在的neighbors中。
 void handle_neighbors(struct Region* region){
@@ -85,40 +84,40 @@ void handle_neighbors(struct Region* region){
 
 
 
-// void handle_transmitter(struct Region* region, struct Duallist *Collisions, int slot){
-//     struct Cell *aCell;
-//     struct Item *aItem, *bItem;
-//     struct vehicle *aCar, *bCar;
-//     struct neighbour_car* bneigh;
+void handle_transmitter(struct Region* region, struct Duallist *Collisions, int slot){
+    struct Cell *aCell;
+    struct Item *aItem, *bItem;
+    struct vehicle *aCar, *bCar;
+    struct neighbour_car* bneigh;
 
-//     for(int i = 0; i<region->hCells; i++){       
-//         for(int j = 0; j<region->vCells;j++) {
-//             aCell = region->mesh + i*region->vCells + j;
-//             aItem = aCell->cars.head;
-//             while (aItem != NULL){
-//                 aCar = (struct vehicle*)aItem->datap;
-//                 if(aCar->slot_occupied != slot) continue; //忽略掉receiver
+    for(int i = 0; i<region->hCells; i++){       
+        for(int j = 0; j<region->vCells;j++) {
+            aCell = region->mesh + i*region->vCells + j;
+            aItem = aCell->cars.head;
+            while (aItem != NULL){
+                aCar = (struct vehicle*)aItem->datap;
+                if(aCar->slot_occupied != slot) continue; //忽略掉receiver
 
-//                 bItem = (struct Item*)aCar->neighbours.head;
-//                 while (bItem != NULL) {
-//                     bCar =  (struct vehicle*)bItem->datap;
-//                     if(aCar->commRadius < distance_with_neighbor(aCar, bCar)) continue;   //超出通信半径
-//                     else{
-//                         if(bCar->slot_occupied == aCar->slot_occupied){
-//                             struct collision* coli =  generate_collision(aCar,bCar,0,slot);
-//                             duallist_add_to_tail(Collisions, coli);
-//                         }else{
-//                             struct packet* pkt = generate_packet(aCar,slot);
-//                             duallist_add_to_tail(&(bCar->packets), pkt);
-//                         }                           
-//                     }
-//                     bItem = bItem->next;
-//                 }
-//                 aItem = aItem->next;
-//             }
-//         }
-//     }
-// }
+                bItem = (struct Item*)aCar->neighbours.head;
+                while (bItem != NULL) {
+                    bCar =  (struct vehicle*)bItem->datap;
+                    if(aCar->commRadius < distance_between_vehicle(aCar, bCar)) continue;   //超出通信半径
+                    else{
+                        if(bCar->slot_occupied == aCar->slot_occupied){
+                            struct collision* coli =  generate_collision(aCar,bCar,0,slot);
+                            duallist_add_to_tail(Collisions, coli);
+                        }else{
+                            struct packet* pkt = generate_packet(aCar,slot);
+                            duallist_add_to_tail(&(bCar->packets), pkt);
+                        }                           
+                    }
+                    bItem = bItem->next;
+                }
+                aItem = aItem->next;
+            }
+        }
+    }
+}
 
 void handle_receiver(struct Region* region, struct Duallist* Collisions, int slot){
     struct Cell *aCell;
@@ -134,8 +133,11 @@ void handle_receiver(struct Region* region, struct Duallist* Collisions, int slo
                 aCar = (struct vehicle*)aItem->datap;
                 if(aCar->slot_occupied == slot) continue; //忽略掉transmitter
                 
-                if(aCar->packets.nItems == 0) continue; //没有收到包
-                else if(aCar->packets.nItems == 1){//只收到一个pkt，则正常收包，update OHN 和THN, frontV, rearV
+                if(aCar->packets.nItems == 0) {//若当前slot没有收到包，则更新此slot为-1
+                    aCar->slot_oneHop[slot] = -1;
+                    aCar->slot_twoHop[slot] = -1;
+                    continue; //没有收到包
+                }else if(aCar->packets.nItems == 1){//只收到一个pkt，则正常收包，update OHN 和THN, frontV, rearV
                     bItem =  (struct Item*)aCar->packets.head;
                     struct packet* pkt= (struct packet*)bItem->datap;
                     int index = pkt->slot, value = pkt->srcVehicle->id;
@@ -143,10 +145,8 @@ void handle_receiver(struct Region* region, struct Duallist* Collisions, int slo
                     for(int i = 0 ; i < SlotPerFrame; i++){
                         aCar->slot_twoHop[i] = pkt->slot_resource_oneHop_snapShot[i];//将pkt中携带的OHN信息更新到THN中，不考虑覆盖问题
                     }
-
-
-
-
+                    // 将pkt指向的车更新到frontV, rearV
+                    insertFrontRear(aCar, pkt);
                 }else{//有两个或以上的pkt，产生Collision
                     bItem = (struct Item*)aCar->packets.head;
                     while(bItem!=NULL){
@@ -215,14 +215,53 @@ bool IsFront(struct vehicle *aCar, struct vehicle *tCar){
 		std::cout<<"Error: the compared two cars are not in the same lane."<<endl;
 		exit(1);
 	}
-	if(aCar->dir_x > 0 && aCar->dir_y >0)
+	if(aCar->dir_x > 0 && aCar->dir_y > 0)
 		return (tCar->x > aCar->x) && (tCar->y > aCar->y);
-	else if(aCar->dir_x > 0 && aCar->dir_y <0)
+	else if(aCar->dir_x > 0 && aCar->dir_y < 0)
 		return (tCar->x > aCar->x) && (tCar->y < aCar->y);
-
+	else if(aCar->dir_x < 0 && aCar->dir_y > 0)
+		return (tCar->x < aCar->x) && (tCar->y > aCar->y);
+    else if(aCar->dir_x < 0 && aCar->dir_y < 0)
+		return (tCar->x < aCar->x) && (tCar->y < aCar->y);
+    
+    if(aCar->dir_x != tCar->dir_x || aCar->dir_y != tCar -> dir_y){
+		std::cout<<"Error: the compared two cars are not in the same lane."<<endl;
+		exit(1);
+	}
 }
 
+//车辆aCar收到一个pkt，将pkt对应的车辆加入到Front或Rear中
+void insertFrontRear(struct vehicle *aCar, struct packet *pkt){
+	if(aCar == NULL || pkt == NULL){
+		std::cout<<"insertFrontRear Error!"<<endl;
+		exit(1);
+	}
+    if(IsFront(aCar, pkt->srcVehicle)){//pkt来源于前面的一个车
+        struct Item* newp = (struct Item*)malloc(sizeof(struct Item));
+	    newp->datap = pkt->srcVehicle;
+        if(aCar->frontV.head == NULL){//若当前无frontV
+            newp->next = NULL;
+            newp->prev = newp;
+            aCar->frontV.head = newp;
+        }else{
+           if(distance_between_vehicle(aCar, aCar->frontV.head->datap) > distance_between_vehicle(aCar, pkt->srcVehicle))
+                aCar->frontV.head->datap = pkt->srcVehicle;//此包的车为最近的车
+        }
 
+    }else{//pkt来源于后面的一个车
+        struct Item* newp = (struct Item*)malloc(sizeof(struct Item));
+	    newp->datap = pkt->srcVehicle;
+        if(aCar->rearV == NULL){//若当前无rearV
+            newp->next = NULL;
+            newp->prev = newp;
+            aCar->rearV.head = newp;
+        }else{
+           if(distance_between_vehicle(aCar, aCar->rearV.head->datap) > distance_between_vehicle(aCar, pkt->srcVehicle))
+                aCar->rearV.head->datap = pkt->srcVehicle;//此包的车为最近的车
+        }
+
+    }
+}
 //----------------------YX above---------------------//
 
 

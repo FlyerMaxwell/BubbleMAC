@@ -199,7 +199,7 @@ typedef struct vehicle
   int slot_condition; //0 for no slot occupied, 1 for accessing slots and 2 for occupied already.
   int* slot_oneHop;
   int* slot_twoHop;
-  bool isExpansion;
+  int isExpansion;
   int car_role;
   int radius_flag;
   int isQueueing;
@@ -207,7 +207,7 @@ typedef struct vehicle
   double dir_x, dir_y; //车辆的方向矢量(dir_x, dir_y)。可调用IsFront(struct vehicle *aCar, struct vehicle *tCar)判断车辆间位置
   struct Duallist packets;
   struct Duallist neighbours;
-  struct Duallist frontV, rearV; //store the front neighbors and rear neighbors according to the received packets.
+  struct Duallist frontV, rearV; //store the front neighbors and rear neighbors according to the received packets.目前只保存距离最近的前一个车和后一个车，可以扩展到n个。
 
 
   //variables for mmwave simulation
@@ -238,7 +238,7 @@ typedef struct packet{
   int slot;
   int condition;////1:tx & tx   2:access_collison 3. merge_collison
   struct vehicle* srcVehicle, *dstVehicle;
-  bool isQueueing;
+  int isQueueing;
   // int *slot_used_by_queue;//不要了
   int *slot_resource_oneHop_snapShot;
 }Packet;
@@ -250,7 +250,7 @@ typedef struct collision{
   int *src_oneHop;
   int *dst_oneHop;
   int *two_oneHop;
-  int *two_oneHop;
+  // int *two_oneHop;
 }Collision;
 
 void report_init_func(struct Report *aRep);
