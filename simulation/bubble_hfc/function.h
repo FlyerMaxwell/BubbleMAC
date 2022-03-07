@@ -30,8 +30,8 @@ double safeDistance(const vehicle* v1, const vehicle* v2);
 double vehicleDistance(const vehicle* v1, const vehicle* v2);
 bool curInFront(const struct vehicle* cur, const struct vehicle* tar);
 int randSlot(int* occupied, int div = 0);
-
-
+void degrade(struct vehicle* cur_vehicle);
+void applyForSlot(struct vehicle* cur_vehicle);
 
 //-----mmwave----//
 int generate_car(struct Region *region);

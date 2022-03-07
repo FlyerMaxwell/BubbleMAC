@@ -1,5 +1,6 @@
 #pragma once
 #include "function.h"
+#include <iostream>
 
 //--------------YX below--------------------------------------//
 int init_simulation(struct Region* region){
@@ -106,14 +107,18 @@ void handle_receiver(struct Region* region, struct Duallist* Collisions, int slo
                 if(aCar->slot_occupied == slot) continue; //忽略掉transmitter
                 
                 if(aCar->packets.nItems == 0) continue; //没有收到包
-                else if(aCar->packets.nItems == 1){//只收到一个pkt，则正常收包，update OHN 和THN
+                else if(aCar->packets.nItems == 1){//只收到一个pkt，则正常收包，update OHN 和THN, frontV, rearV
                     bItem =  (struct Item*)aCar->packets.head;
                     struct packet* pkt= (struct packet*)bItem->datap;
                     int index = pkt->slot, value = pkt->srcVehicle->id;
-                    aCar->slot_oneHop[index] = value;
+                    aCar->slot_oneHop[index] = value;//更新OHN时槽使用情况
                     for(int i = 0 ; i < SlotPerFrame; i++){
                         aCar->slot_twoHop[i] = pkt->slot_resource_oneHop_snapShot[i];//将pkt中携带的OHN信息更新到THN中，不考虑覆盖问题
                     }
+
+
+
+
                 }else{//有两个或以上的pkt，产生Collision
                     bItem = (struct Item*)aCar->packets.head;
                     while(bItem!=NULL){
@@ -175,6 +180,21 @@ struct collision* generate_collision(struct vehicle *aCar, struct vehicle *bCar,
     coli->dst = bCar;
     return coli;
 }
+
+//if tCar is in front of aCar, return true, if not, return false.
+bool IsFront(struct vehicle *aCar, struct vehicle *tCar){
+	if(aCar->dir_x != tCar->dir_x || aCar->dir_y != tCar -> dir_y){
+		std::cout<<"Error: the compared two cars are not in the same lane."<<endl;
+		exit(1);
+	}
+	if(aCar->dir_x > 0 && aCar->dir_y >0)
+		return (tCar->x > aCar->x) && (tCar->y > aCar->y);
+	else if(aCar->dir_x > 0 && aCar->dir_y <0)
+		return (tCar->x > aCar->x) && (tCar->y < aCar->y);
+
+}
+
+
 //----------------------YX above---------------------//
 
 
@@ -734,4 +754,31 @@ int randSlot(int* occupied, int div){
 }
 int randSlot(int* occupied){
 	return randSlot(occupied, 0);
+}
+
+void Degrade(struct vehicle* cur_vehicle){
+
+	cur_vehicle->slot_occupied = rand()%(SlotPerFrame - 1) + 1;
+	cur_vehicle->slot_condition = 1;
+	cur_vehicle->car_role = ROLE_SINGLE;
+	cur_vehicle->commRadius = safeDistance(cur_vehicle, NULL);
+	cur_vehicle->radius_flag = true;  
+	// for(int i = 0; i < SlotPerFrame; i++){	//清空onehop
+	// 	cur_vehicle->slot_oneHop[i] = -1;
+	// 	cur_vehicle->slot_twoHop[i] = -1;
+	// }
+
+}
+
+void applyForSlot(struct vehicle* cur_vehicle){
+	for(struct Item* p = cur_vehicle->packets.head; p != NULL; p = p->next){        //申请成功
+		struct packet* cur_packet = (struct packet*)p->datap;
+		struct vehicle* target_vehicle = cur_packet->srcVehicle;
+		double dis = vehicleDistance(cur_vehicle, target_vehicle);
+
+		if(cur_packet->slot_resource_oneHop_snapShot[cur_vehicle->slot_occupied] == cur_vehicle->id){
+			cur_vehicle->slot_condition = 2;
+			cur_vehicle->slot_oneHop[cur_packet->slot] = target_vehicle->id;
+		}
+	}
 }

@@ -204,7 +204,7 @@ typedef struct vehicle
   int radius_flag;
   int isQueueing;
   double commRadius;
-  double dir_x, dir_y;
+  double dir_x, dir_y; //车辆的方向矢量(dir_x, dir_y)。可调用IsFront(struct vehicle *aCar, struct vehicle *tCar)判断车辆间位置
   struct Duallist packets;
   struct Duallist neighbours;
   struct Duallist frontV, rearV; //store the front neighbors and rear neighbors according to the received packets.
