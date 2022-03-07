@@ -24,7 +24,6 @@ INCLUDES= \
 	-I./simulation/pkg -I./simulation/node -I./simulation/event -I./simulation/oracle -I./simulation/traffic -I./simulation/simulator \
 	-I./apps/sybil/cliquer \
 	-I./simulation/mmwave \
-	-I./simulation/bubble \
 	-I/usr/lib/i386-linux-gnu/glib-2.0/include \
 	-I/usr/lib/i386-linux-gnu/gtk-2.0/include \
 	-I/usr/include/gdk-pixbuf-2.0 \
@@ -54,14 +53,6 @@ OBJ_VIEWER= \
 OBJ_MAP	= \
 	common/common.o trace/trace.o \
 	geometry/geometry.o geometry/maptuner.o
-
-OBJ_BUBBLE = \
-	common/common.o trace/trace.o \
-	geometry/geometry.o \
-	simulation/bubble/parameters.o\
-    simulation/mmwave/function.o\
-	simulation/mmwave/bubble.o
-
 OBJ_MMWAVE = \
 	common/common.o trace/trace.o \
 	geometry/geometry.o \
@@ -250,7 +241,7 @@ OBJ_RUN_BUSNET = \
 	simulation/exprs/run_busnet.o  
 
 CLEANFILES= \
-	mapviewer mmwave_simulation bubble_simulation trace_generate gettraveltime getSocialedge getCommunity maptuner pickshgps drawRRG \
+	mapviewer mmwave_simulation trace_generate gettraveltime getSocialedge getCommunity maptuner pickshgps drawRRG \
 	getRRG splitshgps dist getrouteCG getDegree \
 	contactfinder dividelist comset pair_filter vmobility jun ict_redundency ict cutgd \
 	genmgd getpdf redefact strtot deallog getdly getfpos getRoutesCoverage getRegionArea parsePkgDump getTraceBox collector getavg picktxt sztaxi2ogd sztaxi2txt insertmgd ogd2mgd \
@@ -276,13 +267,12 @@ CLEANFILES= \
 	simulation/pkg/pkg.o simulation/node/node.o simulation/node/storage.o simulation/simulator/simulator.o \
 	simulation/mmwave/mmwave.o simulation/mmwave/blossom.o simulation/mmwave/protocol.o simulation/mmwave/log_result.o simulation/mmwave/parameters.o simulation/mmwave/function.o\
 	simulation/mmwave/weighted_blossom.o \
-	simulation/bubble/bubble.o simulation/bubble/parameters.o simulation/bubble/function.o\
 	simulation/oracle/oracle.o simulation/traffic/traffic.o simulation/traffic/gentraffic.o simulation/exprs/run_busnet.o simulation/exprs/run_adhoc_fwding.o simulation/exprs/run_data_dissemination.o \
 	simulation/event/event.o simulation/event/cntEvent.o simulation/event/busArriveCellEvent.o \
 	simulation/event/busMeetStorageEvent.o simulation/event/busMeetBusEvent.o \
 	simulation/event/taxiMeetBusEvent.o simulation/event/taxiMeetStorageEvent.o  
 	
-all:	clean mapviewer maptuner bubble_simulation mmwave_simulation trace_generate mapsimulate pickshgps splitshgps dist contactfinder getroute \
+all:	clean mapviewer maptuner mmwave_simulation trace_generate mapsimulate pickshgps splitshgps dist contactfinder getroute \
 	pair_filter vmobility ict_redundency ict dividelist comset genmgd cutgd rmdefact getpdf getRoutesCoverage getRegionArea parsePkgDump getTraceBox strtot \
 	getdly getfpos getavg picktxt \
 	sztaxi2ogd sztaxi2txt insertmgd ogd2mgd rsutime checktraj spooftraj sybilrst logtraj vcover rsutopo dumpruns checkfee dumprep run_busnet run_adhoc_fwding
@@ -296,8 +286,6 @@ maptuner: $(OBJ_MAP)
 	$(LINK) $(LDFLAGS) $(LDOUT)$@ $(OBJ_MAP)  $(LIBS)
 mmwave_simulation: $(OBJ_MMWAVE)
 	$(LINK) $(LDFLAGS) $(LDOUT)$@ $(OBJ_MMWAVE) $(LIBS)
-bubble_simulation: $(OBJ_BUBBLE)
-	$(LINK) $(LDFLAGS) $(LDOUT)$@ $(OBJ_BUBLE) $(LIBS) 
 trace_generate: $(OBJ_SIMULATION)
 	$(LINK) $(LDFLAGS) $(LDOUT)$@ $(OBJ_SIMULATION) $(LIBS)
 mapsimulate: $(OBJ_MAP_A) 
