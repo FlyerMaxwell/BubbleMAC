@@ -16,42 +16,15 @@ int init_simulation(struct Region* region){
 			aItem = aCell->cars.head;
 			while (aItem != NULL){
 				aCar = (struct vehicle*)aItem->datap;
-//-----------------------需要初始化的内容---------------------------//
-                  	aCar->id = -1;               // id of the car
-					aCar->handled = 0;                  //  to indicate whether the car has been updated during this time
-					aCar->position = 0, aCar->positionNew = 0;	// distance from the head of road before update  
-					aCar->v = 0, aCar->vnext = 0;		// the velocity of the vehicle
-					aCar->vmax = 0;		// the max velocity of the vehicle
-					aCar->a = 0;		// the accelration of the vehicle, regard as constant
-					aCar->b = 0;		// the decelration of the vehicle, regard as constant
-					aCar->x = 0;
-					aCar->y = 0;
-					aCar->belongLane = NULL;
-					aCar->pathInfo = NULL;
-					aCar->currentRoadItem = NULL;
 
-					//varaibles fpr bubble MAC
-					aCar->belongLaneID = -1;
-					aCar->slot_occupied = 1;  //
-					aCar->slot_condition = 0; //0 for no slot occupied, 1 for accessing slots and 2 for occupied already.
-					aCar->slot_oneHop = (int*)malloc(sizeof(int)*SlotPerFrame);
-					aCar->slot_twoHop = (int*)malloc(sizeof(int)*SlotPerFrame);
-					aCar->isExpansion = false;
-					aCar->car_role = ROLE_SINGLE;
+//-----------------------需要初始化的内容---------------------------//
 					aCar->radius_flag = 0;
-					aCar->isQueueing = 0;
 					aCar->commRadius = 0;
-					aCar->dir_x = 0, aCar->dir_y = 0; //车辆的方向矢量(dir_x, dir_y)。可调用IsFront(struct vehicle *aCar, struct vehicle *tCar)判断车辆间位置
-					
-					duallist_destroy(&aCar->packets, NULL);
+
 					duallist_destroy(&aCar->neighbours, NULL);
-					duallist_destroy(&aCar->frontV, NULL);
-					duallist_destroy(&aCar->rearV, NULL);
-					
-					duallist_init(&aCar->packets);
+										
 					duallist_init(&aCar->neighbours);
-					duallist_init(&aCar->frontV);
-					duallist_init(&aCar->rearV);	//store the front neighbors and rear neighbors according to the received packets.
+					
 			}
 		}
 	}
@@ -84,6 +57,9 @@ int generate_car(struct Region *region) 		//new generate_car modified by hfc
 	for (k=0; k< carnum; k++){
 		struct vehicle *new_car;
 		new_car=(struct vehicle*)malloc(sizeof(struct vehicle));
+
+		new_car->slot_oneHop = (int*)malloc(sizeof(int)*SlotPerFrame);
+		new_car->slot_twoHop = (int*)malloc(sizeof(int)*SlotPerFrame);
 		fscanf(carinfo, "%d", &new_car->id);
 		fscanf(carinfo, "%lf", &new_car->x);
 		fscanf(carinfo, "%lf", &new_car->y);
