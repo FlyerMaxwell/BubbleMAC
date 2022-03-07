@@ -196,7 +196,7 @@ int generate_car(struct Region *region) 		//new generate_car modified by hfc
 
 
 //handle neighbors： 处理邻居，将所有车辆的所在的九宫格内的车挂载到其潜在的neighbors中。
-void handle_neighbors(struct Region* region){
+void handle_neighbours(struct Region* region){
     struct Cell *aCell, *nCell;
     struct Item *aItem, *nItem;
     struct vehicle* aCar, *nCar;
@@ -442,147 +442,12 @@ int randSlot(int* occupied, int div){
 	
 	return ret;
 }
-int randSlot(int* occupied){
-	return randSlot(occupied, 0);
-}
-
-
-
-
-
-//----------------------fc below-------------------//
-
-// int generate_car_old(struct Region *region, unordered_map<int, vehicle*>& allCars) 
-// {
-//   double xmin,ymin,xmax,ymax, x, y;
-//   int flag, i, j, k, l;
-//   struct Cell *aCell, *bCell;
-//   struct Item *aItem, *bItem, *tItem, *nItem;
-//   struct vehicle *bCar, *aCar, *tCar, *nCar;
-//   struct neighbour_car* tNeigh, *nNeigh, *bNeigh;
-//   FILE *carinfo;
-//   char file_path[100];
-//   int car_count=0;
-
-//   xmin = region->chosen_polygon->box.xmin;
-//   xmax = region->chosen_polygon->box.xmax;
-//   ymin = region->chosen_polygon->box.ymin;
-//   ymax = region->chosen_polygon->box.ymax;
-  
-// 	sprintf(file_path, "/home/lion/Desktop/hfc/vanet1.0_old/vanet1.0/car_position/carposition_%d_%d.txt", traffic_density, bi_num); //traffic density, bi number
-// 	carinfo = fopen(file_path, "r");
-// 	int carnum;
-// 	fscanf(carinfo, "%d", &carnum);
-// 	Car_Number = carnum;
-// 	for (k=0; k< carnum; k++){
-// 		struct vehicle *new_car;
-// 		new_car=(struct vehicle*)malloc(sizeof(struct vehicle));
-// 		fscanf(carinfo, "%d", &new_car->id);
-// 		fscanf(carinfo, "%lf", &new_car->x);
-// 		fscanf(carinfo, "%lf", &new_car->y);
-// 		fscanf(carinfo, "%lf", &new_car->x1);
-// 		fscanf(carinfo, "%lf", &new_car->y1);
-// 		fscanf(carinfo, "%lf", &new_car->v);
-// 		new_car->handled = 2;
-// 		duallist_init(&new_car->history_neigh);
-// 		duallist_init(&new_car->choose_neigh);
-// 		duallist_init(&new_car->neighbours);
-// 		duallist_init(&new_car->real_neigh);
-// 		duallist_init(&new_car->known_neigh);
-
-		
-// //if (learning_cycle_num==2) printf("0.1\n");
-// 		flag = false;		
-// 		for(i = 0; i<region->hCells; i++){       
-// 			for(j = 0; j<region->vCells;j++) {
-// 				aCell = region->mesh + i*region->vCells + j;
-// 				if (aCell->box.xmin <= new_car->x && aCell->box.xmax > new_car->x && aCell->box.ymax > new_car->y && aCell->box.ymin <= new_car->y) {flag=true;break;} //find the cell which contains the new car
-// 			}
-// 			if (flag==true) break;
-// 		}
-// 		new_car->belongCell = aCell;
-		
-// 		flag = false;
-// 		for(i = 0; i<region->hCells; i++){       
-// 			for(j = 0; j<region->vCells;j++) {
-// 				bCell = region->mesh + i*region->vCells + j;
-// 				bItem = (struct Item*)bCell->cars.head;
-// 				while (bItem != NULL){
-// 					bCar = (struct vehicle*)bItem->datap;
-// 					if (bCar->id == new_car->id) {flag = true;break;}
-// 					bItem = bItem->next;
-// 				}
-// 				if (flag == true) break;
-// 			}
-// 			if (flag == true) break;
-// 		}
-// //if (learning_cycle_num==2) printf("0.2\n");
-// 		if (flag == true) {
-// 			bCar->x = new_car->x;
-// 			bCar->y = new_car->y;
-// 			bCar->x1 = new_car->x1;
-// 			bCar->y1 = new_car->y1;
-// 			bCar->v = new_car->v;
-// 			bCar->belongCell = new_car->belongCell;
-// 			bCar->handled = 1;
-// 			duallist_pick_item(&bCell->cars, bItem);
-// 			duallist_add_to_tail(&aCell->cars, bCar);
-
-// 			if (bi_num%200 == 0) {
-// 				duallist_destroy(&bCar->history_neigh, NULL);
-// 				duallist_init(&bCar->history_neigh);
-// 				duallist_destroy(&bCar->neighbours, NULL);
-// 				duallist_init(&bCar->neighbours);
-// 			}
-// //if (learning_cycle_num==2) printf("0.25\n");
-// 			else {
-// 				duallist_destroy(&bCar->neighbours, NULL);
-// 				duallist_init(&bCar->neighbours);
-// 			}
-
-// 			free(new_car);
-// 		}
-// //if (learning_cycle_num==2) printf("0.3\n");
-// 		if (flag == false && bi_num%200==0) duallist_add_to_tail(&(aCell->cars), new_car);
-// 		if (flag == false && bi_num%200!=0) free(new_car);
-// 	}
-	
-// //printf("1\n");
-// 	for(i = 0; i<region->hCells; i++){       
-// 			for(j = 0; j<region->vCells;j++) {
-// 				aCell = region->mesh + i*region->vCells + j;
-// 				aItem = aCell->cars.head;
-// 				while (aItem != NULL){
-// 					aCar = (struct vehicle*)aItem->datap;
-// 					tItem = aItem;
-// 					aItem = aItem->next;
-// 					if (aCar->handled ==0) {
-// 						bItem = aCar->history_neigh.head;
-// 						while (bItem !=NULL) {
-// 							bNeigh = (struct neighbour_car*)bItem->datap;
-// 							bCar = (struct vehicle*)bNeigh->carItem->datap;
-// 							nItem = bCar->history_neigh.head;
-// 							while (nItem !=NULL) {
-// 								nNeigh = (struct neighbour_car*)nItem->datap;
-// 								if (nNeigh->car_id ==aCar->id) {duallist_pick_item(&bCar->history_neigh, nItem); break;}
-// 								nItem = nItem->next;
-// 							}
-// 							bItem = bItem->next;
-// 						}
-// 						duallist_pick_item(&aCell->cars, tItem); 
-// 						free(aCar);
-// 					}
-// 					else car_count++;
-// 				}
-// 			}
-// 	}
-
-// 	fclose(carinfo);
-
-//   //printf("\ntotal car number in this BI: %d\n", car_count);
- 
-//   return 0;
+// int randSlot(int* occupied){
+// 	return randSlot(occupied, 0);
 // }
+
+
+
 
 
 
@@ -682,7 +547,7 @@ void update_trans_rate(struct Region *region)
 	}
 
 	//update transmission rate
-	calculate_rate(region);
+	// calculate_rate(region);
 
 	fclose(carinfo);
 
@@ -776,18 +641,13 @@ bool curInFront(const struct vehicle* cur, const struct vehicle* tar){
 
 
 
-void Degrade(struct vehicle* cur_vehicle){
+void degrade(struct vehicle* cur_vehicle){
 
 	cur_vehicle->slot_occupied = rand()%(SlotPerFrame - 1) + 1;
 	cur_vehicle->slot_condition = 1;
 	cur_vehicle->car_role = ROLE_SINGLE;
 	cur_vehicle->commRadius = safeDistance(cur_vehicle, NULL);
 	cur_vehicle->radius_flag = true;  
-	// for(int i = 0; i < SlotPerFrame; i++){	//清空onehop
-	// 	cur_vehicle->slot_oneHop[i] = -1;
-	// 	cur_vehicle->slot_twoHop[i] = -1;
-	// }
-
 }
 
 void applyForSlot(struct vehicle* cur_vehicle){
