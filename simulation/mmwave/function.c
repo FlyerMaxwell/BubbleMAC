@@ -163,6 +163,11 @@ int generate_car_old(struct Region *region)
  
   return 0;
 }
+
+void updateLoc(struct Region *aRegion){
+	return;
+}
+
 int generate_car(struct Region *region, const int slot, unordered_map<int, vehicle*>& allCars) 		//new generate_car modified by hfc
 {
 	double xmin,ymin,xmax,ymax, x, y;

@@ -29,6 +29,8 @@ void log_collisions(struct Region* region, struct Duallist* Collisions);
 bool IsFront(struct vehicle *aCar, struct vehicle *tCar);
 void insertFrontRear(struct vehicle *aCar, struct packet *pkt);
 void bubble_mac_protocol(struct Region* aRegion);
+void updateLoc(struct Region *aRegion);
+
 
 //---bubble updated by fc----//
 

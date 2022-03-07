@@ -48,12 +48,15 @@ int generate_car(struct Region *region) 		//new generate_car modified by hfc
 	xmax = region->chosen_polygon->box.xmax;
 	ymin = region->chosen_polygon->box.ymin;
 	ymax = region->chosen_polygon->box.ymax;
-  
-	sprintf(file_path, "/home/lion/Desktop/hfc/vanet1.0_old/vanet1.0/car_position/carposition_%d_%d.txt", traffic_density, slot + 4000); //traffic density, slot number
+    
+    printf("Loading vehilces...\n");
+
+	sprintf(file_path, "/home/lion/Yunxiang/vanet1.0/vanet1.0/car_position/carposition_%d_%d.txt", traffic_density, slot/UpLocSlot + 4000); //traffic density, slot number
 	carinfo = fopen(file_path, "r");
 	int carnum;
 	fscanf(carinfo, "%d", &carnum);
 	Car_Number = carnum;
+
 	for (k=0; k< carnum; k++){
 		struct vehicle *new_car;
 		new_car=(struct vehicle*)malloc(sizeof(struct vehicle));
@@ -166,8 +169,11 @@ int generate_car(struct Region *region) 		//new generate_car modified by hfc
 	fclose(carinfo);
 
   //printf("\ntotal car number in this BI: %d\n", car_count);
- 
+  printf("Vehicles have been loaded.\n");
   return 0;
+}
+void updateLoc(struct Region *aRegion){
+    
 }
 
 

@@ -4,8 +4,8 @@
 
 int slot = 0;
 double BRAKE_COE = 1;
-int UpLocSlot = 10;
-int SlotPerFrame = 200;
+int UpLocSlot = 10;//每个slot单位是0.5ms，更新位置的时间间隔为5ms，故为10个slot.      slot/UpLocSlot即为第几个5ms，或第几个位置
+int SlotPerFrame = 200;//每个slot单位是0.5ms，一个frame是0.1秒，故为200个slot         slot/SlotPerFrame即为第几帧
 int NOT_OCCUPIED = -1;
 int SLOT_COLLISION = -2;
 int HEAD_SLOT = 1;
