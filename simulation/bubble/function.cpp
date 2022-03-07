@@ -41,6 +41,12 @@ int init_simulation(struct Region* region){
 					aCar->isQueueing = 0;
 					aCar->commRadius = 0;
 					aCar->dir_x = 0, aCar->dir_y = 0; //车辆的方向矢量(dir_x, dir_y)。可调用IsFront(struct vehicle *aCar, struct vehicle *tCar)判断车辆间位置
+					
+					duallist_destroy(&aCar->packets, NULL);
+					duallist_destroy(&aCar->neighbours, NULL);
+					duallist_destroy(&aCar->frontV, NULL);
+					duallist_destroy(&aCar->rearV, NULL);
+					
 					duallist_init(&aCar->packets);
 					duallist_init(&aCar->neighbours);
 					duallist_init(&aCar->frontV);
