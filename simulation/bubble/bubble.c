@@ -44,29 +44,29 @@ int main(int argc, char *argv[]) {
     printf("%lf\n",aRegion->cellSize);//cellsize错了，剑钢说暂不影响
 
     // Simulation in sequence style.
-	for (slot = 0; slot < 20000; slot++){//carposition从4000-5999，合计2000个文件，10秒
+	for (slot = 0; slot < 300; slot++){//carposition从4000-5999，合计2000个文件，10秒
         //Update vehicles' location.
-        if(slot % (SlotPerFrame*10) == 0){  //每1s对参与统计的车辆进行更新
-            generate_car(aRegion);
-            handle_neighbours(aRegion);              
-        } else if(slot % UpLocSlot == 0) { //5ms更新位置
-            updateLoc(aRegion);
-            handle_neighbours(aRegion);
+        if(slot % UpLocSlot == 0) { //每UpLocSlot更新位置,每SlotPerFrame*nFrameSta添加新车
+            init_simulation(aRegion);
+            update_cars(aRegion);
+            //handle_neighbours(aRegion);
+            printf("slot = %d\n", slot);
         }
+        
 
-        // Determine the slot and comm. range at the beginning of each frame
-        if(slot % SlotPerFrame == 0){
-            bubble_mac_protocol(aRegion);
-        }
+        // // Determine the slot and comm. range at the beginning of each frame
+        // if(slot % SlotPerFrame == 0){
+        //     bubble_mac_protocol(aRegion);
+        // }
 
-        //handle the transmitter at each slot
-        handle_transmitter(aRegion, &AllCollisions, slot);
-        //handle the receiver at each slot
-        handle_receiver(aRegion, &AllCollisions, slot);
+        // //handle the transmitter at each slot
+        // handle_transmitter(aRegion, &AllCollisions, slot);
+        // //handle the receiver at each slot
+        // handle_receiver(aRegion, &AllCollisions, slot);
         
     }  
-        // Log collisions. 如果一次性写入文件太大，则放进循环多次写入;或直接写入文件
-        log_collisions(aRegion,&AllCollisions);
+        // // Log collisions. 如果一次性写入文件太大，则放进循环多次写入;或直接写入文件
+        // log_collisions(aRegion,&AllCollisions);
     return 0;
 }
 

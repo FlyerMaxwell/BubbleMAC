@@ -18,13 +18,8 @@ int init_simulation(struct Region* region){
 				aCar = (struct vehicle*)aItem->datap;
 
 //-----------------------需要初始化的内容---------------------------//
-					aCar->radius_flag = 0;
-					aCar->commRadius = 0;
-
-					duallist_destroy(&aCar->neighbours, NULL);
-										
-					duallist_init(&aCar->neighbours);
-					
+				aCar->handled = 0;	
+                aItem = aItem->next;	
 			}
 		}
 	}
@@ -32,7 +27,7 @@ int init_simulation(struct Region* region){
 }
 
 
-int generate_car(struct Region *region) 		//new generate_car modified by hfc
+void update_cars(struct Region *region) 		//new generate_car modified by hfc
 {
 	double xmin,ymin,xmax,ymax, x, y;
 	int flag, i, j, k, l;
@@ -61,8 +56,7 @@ int generate_car(struct Region *region) 		//new generate_car modified by hfc
 		struct vehicle *new_car;
 		new_car=(struct vehicle*)malloc(sizeof(struct vehicle));
 
-		new_car->slot_oneHop = (int*)malloc(sizeof(int)*SlotPerFrame);
-		new_car->slot_twoHop = (int*)malloc(sizeof(int)*SlotPerFrame);
+        //读取一行数据到new_Car中
 		fscanf(carinfo, "%d", &new_car->id);
 		fscanf(carinfo, "%lf", &new_car->x);
 		fscanf(carinfo, "%lf", &new_car->y);
@@ -72,14 +66,19 @@ int generate_car(struct Region *region) 		//new generate_car modified by hfc
 		fscanf(carinfo, "%lf", &new_car->belongLaneID);
 		fscanf(carinfo, "%lf", &new_car->dir_x);
 		fscanf(carinfo, "%lf", &new_car->dir_y);
-
-		new_car->handled = 2;
-		duallist_init(&new_car->history_neigh);
-		duallist_init(&new_car->choose_neigh);
+        new_car->slot_oneHop = (int*)malloc(sizeof(int)*SlotPerFrame);
+		new_car->slot_twoHop = (int*)malloc(sizeof(int)*SlotPerFrame);
+        for(int ii = 0; ii < SlotPerFrame; ii++){
+            new_car->slot_oneHop[ii] = -1;
+            new_car->slot_twoHop[ii] = -1;
+        }
+		new_car->handled = 2;//新车
+		duallist_init(&new_car->packets);
 		duallist_init(&new_car->neighbours);
-		duallist_init(&new_car->real_neigh);
-		duallist_init(&new_car->known_neigh);
-//if (learning_cycle_num==2) printf("0.1\n");
+		duallist_init(&new_car->frontV);
+		duallist_init(&new_car->rearV);
+
+        //找到new_Car对应的aCell
 		flag = false;		
 		for(i = 0; i<region->hCells; i++){       
 			for(j = 0; j<region->vCells;j++) {
@@ -92,7 +91,9 @@ int generate_car(struct Region *region) 		//new generate_car modified by hfc
 			if (flag==true) break;
 		}
 		new_car->belongCell = aCell;
-		// allCars[new_car->id] = new_car;	//*************************modified by hfc
+
+
+    //查找new_Car是否已经存在， 若存在，flag=true；若不存在，则flag = false
 		flag = false;
 		for(i = 0; i<region->hCells; i++){       
 			for(j = 0; j<region->vCells;j++) {
@@ -107,73 +108,57 @@ int generate_car(struct Region *region) 		//new generate_car modified by hfc
 			}
 			if (flag == true) break;
 		}
-//if (learning_cycle_num==2) printf("0.2\n");
+
+        //若之前已存在，则更新其运动学信息及所归属的cell
 		if (flag == true) {
 			bCar->x = new_car->x;
 			bCar->y = new_car->y;
 			bCar->v = new_car->v;
 			bCar->belongCell = new_car->belongCell;
-			bCar->handled = 1;
+            bCar->handled = 1;//已有的车辆且处理
 			duallist_pick_item(&bCell->cars, bItem);
 			duallist_add_to_tail(&aCell->cars, bCar);
-
-			if (bi_num%200 == 0) {
-				duallist_destroy(&bCar->history_neigh, NULL);
-				duallist_init(&bCar->history_neigh);
-				duallist_destroy(&bCar->neighbours, NULL);
-				duallist_init(&bCar->neighbours);
-			}
-//if (learning_cycle_num==2) printf("0.25\n");
-			else {
-				duallist_destroy(&bCar->neighbours, NULL);
-				duallist_init(&bCar->neighbours);
-			}
-
 			free(new_car);
 		}
-//if (learning_cycle_num==2) printf("0.3\n");
-		if (flag == false && bi_num%200==0) duallist_add_to_tail(&(aCell->cars), new_car);
-		if (flag == false && bi_num%200!=0) free(new_car);
+		if (flag == false && slot % (SlotPerFrame*nFrameSta) == 0) duallist_add_to_tail(&(aCell->cars), new_car);
+		if (flag == false && slot % (SlotPerFrame*nFrameSta) != 0) free(new_car);
 	}
-	
-//printf("1\n");
-	for(i = 0; i<region->hCells; i++){       
-			for(j = 0; j<region->vCells;j++) {
-				aCell = region->mesh + i*region->vCells + j;
-				aItem = aCell->cars.head;
-				while (aItem != NULL){
-					aCar = (struct vehicle*)aItem->datap;
-					tItem = aItem;
-					aItem = aItem->next;
-					if (aCar->handled ==0) {
-						bItem = aCar->history_neigh.head;
-						while (bItem !=NULL) {
-							bNeigh = (struct neighbour_car*)bItem->datap;
-							bCar = (struct vehicle*)bNeigh->carItem->datap;
-							nItem = bCar->history_neigh.head;
-							while (nItem !=NULL) {
-								nNeigh = (struct neighbour_car*)nItem->datap;
-								if (nNeigh->car_id ==aCar->id) {duallist_pick_item(&bCar->history_neigh, nItem); break;}
-								nItem = nItem->next;
-							}
-							bItem = bItem->next;
-						}
-						duallist_pick_item(&aCell->cars, tItem); 
-						free(aCar);
-					}
-					else car_count++;
-				}
-			}
+
+    //处理那些消失掉的车，目前的版本是，在每个updateLoc都清除掉那些消失的车
+    for(i = 0; i<region->hCells; i++){       
+        for(j = 0; j<region->vCells;j++) {
+            aCell = region->mesh + i*region->vCells + j;
+            aItem = aCell->cars.head;
+            while (aItem != NULL){
+                aCar = (struct vehicle*)aItem->datap;
+                tItem = aItem;
+				aItem = aItem->next;
+                if (aCar->handled == 0) {
+                    bItem = aCar->history_neigh.head;
+                    while (bItem !=NULL) {
+                        bNeigh = (struct neighbour_car*)bItem->datap;
+                        bCar = (struct vehicle*)bNeigh->carItem->datap;
+                        nItem = bCar->history_neigh.head;
+                        while (nItem !=NULL) {
+                            nNeigh = (struct neighbour_car*)nItem->datap;
+                            if (nNeigh->car_id ==aCar->id) {duallist_pick_item(&bCar->history_neigh, nItem); break;}
+                            nItem = nItem->next;
+                        }
+                        bItem = bItem->next;
+                    }
+                    duallist_pick_item(&aCell->cars, tItem); 
+                    free(aCar);
+                }
+                else car_count++;
+            }
+        }
 	}
 
 	fclose(carinfo);
 
-  //printf("\ntotal car number in this BI: %d\n", car_count);
-  printf("Vehicles have been loaded.\n");
-  return 0;
-}
-void updateLoc(struct Region *aRegion){
-    
+    printf("\ntotal car number in this slot: %d\n", car_count);
+    printf("Vehicles have been loaded!\n");
+    return;
 }
 
 

@@ -10,7 +10,7 @@ int NOT_OCCUPIED = -1;
 int SLOT_COLLISION = -2;
 int HEAD_SLOT = 1;
 int TAIL_SLOT = 199;
-
+int nFrameSta =10;//每隔多少帧更新场上的车辆（纳入统计）
 
 
 

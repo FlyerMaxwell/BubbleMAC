@@ -17,7 +17,7 @@
 
 //---bubble updated by YX----//
 int init_simulation(struct Region* region);
-int generate_car(struct Region *region);
+void update_cars(struct Region *region);
 void handle_neighbours(struct Region *region);
 void handle_transmitter(struct Region* region, struct Duallist *Collisions, int slot);
 void handle_receiver(struct Region* region, struct Duallist* Collisions, int slot);
@@ -29,7 +29,6 @@ void log_collisions(struct Region* region, struct Duallist* Collisions);
 bool IsFront(struct vehicle *aCar, struct vehicle *tCar);
 void insertFrontRear(struct vehicle *aCar, struct packet *pkt);
 void bubble_mac_protocol(struct Region* aRegion);
-void updateLoc(struct Region *aRegion);
 
 
 //---bubble updated by fc----//

@@ -197,14 +197,15 @@ typedef struct vehicle
   int belongLaneID;
   int slot_occupied;  //
   int slot_condition; //0 for no slot occupied, 1 for accessing slots and 2 for occupied already.
-  int* slot_oneHop;
-  int* slot_twoHop;
   int isExpansion;
   int car_role;
   int radius_flag;
   int isQueueing;
   double commRadius;
   double dir_x, dir_y; //车辆的方向矢量(dir_x, dir_y)。可调用IsFront(struct vehicle *aCar, struct vehicle *tCar)判断车辆间位置
+  
+  int* slot_oneHop;
+  int* slot_twoHop;
   struct Duallist packets;
   struct Duallist neighbours;
   struct Duallist frontV, rearV; //store the front neighbors and rear neighbors according to the received packets.目前只保存距离最近的前一个车和后一个车，可以扩展到n个。

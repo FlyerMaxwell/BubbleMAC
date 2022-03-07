@@ -21,6 +21,7 @@ extern int NOT_OCCUPIED;
 extern int SLOT_COLLISION;
 extern int HEAD_SLOT;
 extern int TAIL_SLOT;
+extern int nFrameSta;
 // extern unordered_map<int, struct vehicle*> allCars;
 // extern int ROLE_SINGLE;
 // extern int ROLE_HEAD;
