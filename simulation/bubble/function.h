@@ -12,6 +12,8 @@
 #include "parameters.h"
 #include "log_result.h"
 
+#define max(a,b) ((a) > (b) ? (a) : (b))
+#define min(a,b) ((a) < (b) ? (a) : (b))
 
 //---bubble updated by YX----//
 int init_simulation(struct Region* region);
@@ -26,6 +28,7 @@ struct collision* generate_collision(struct vehicle *aCar, struct vehicle *bCar,
 void log_collisions(struct Region* region, struct Duallist* Collisions);
 bool IsFront(struct vehicle *aCar, struct vehicle *tCar);
 void insertFrontRear(struct vehicle *aCar, struct packet *pkt);
+void bubble_mac_protocol(struct Region* aRegion);
 
 //---bubble updated by fc----//
 

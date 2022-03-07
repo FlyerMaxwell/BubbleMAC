@@ -63,7 +63,7 @@ OBJ_MAP	= \
 OBJ_BUBBLE = \
 	common/common.o trace/trace.o \
 	geometry/geometry.o \
-	simulation/bubble/parameters.o simulation/bubble/function.o\
+	simulation/bubble/parameters.o simulation/bubble/function.o \
 	simulation/bubble/bubble.o
 
 OBJ_MMWAVE = \
@@ -285,7 +285,7 @@ CLEANFILES= \
 	simulation/event/event.o simulation/event/cntEvent.o simulation/event/busArriveCellEvent.o \
 	simulation/event/busMeetStorageEvent.o simulation/event/busMeetBusEvent.o \
 	simulation/event/taxiMeetBusEvent.o simulation/event/taxiMeetStorageEvent.o \
-	simulation/bubble/parameters.o simulation/bubble/function.o  simulation/bubble/bubble.o
+	simulation/bubble/parameters.o simulation/bubble/function.o simulation/bubble/bubble.o
 	
 all:	clean mapviewer maptuner mmwave_simulation trace_generate mapsimulate pickshgps splitshgps dist contactfinder getroute \
 	pair_filter vmobility ict_redundency ict dividelist comset genmgd cutgd rmdefact getpdf getRoutesCoverage getRegionArea parsePkgDump getTraceBox strtot \
