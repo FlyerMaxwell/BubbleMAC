@@ -2,14 +2,16 @@
 #define PARAMETERS_H
 
 #include <stdio.h>
-#include<unordered_map>
+#include <stdlib.h>
+// #include<unordered_map>
 #define false 0
 #define true 1
 #define ROLE_SINGLE 0
 #define ROLE_HEAD 1
 #define ROLE_TAIL 2
 #define ROLE_MID 3
-using namespace std;
+#define bool int
+// using namespace std;
 /***********************bubble parameters**********************/
 extern int slot;
 extern double BRAKE_COE;
@@ -19,7 +21,7 @@ extern int NOT_OCCUPIED;
 extern int SLOT_COLLISION;
 extern int HEAD_SLOT;
 extern int TAIL_SLOT;
-extern unordered_map<int, struct vehicle*> allCars;
+// extern unordered_map<int, struct vehicle*> allCars;
 // extern int ROLE_SINGLE;
 // extern int ROLE_HEAD;
 // extern int ROLE_TAIL;

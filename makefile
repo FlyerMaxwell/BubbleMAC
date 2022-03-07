@@ -23,24 +23,29 @@ INCLUDES= \
  	-I./trace -I./trace/bus -I./common -I./geometry -I./GUI -I./GUI/color -I./mobility -I./graph  \
 	-I./simulation/pkg -I./simulation/node -I./simulation/event -I./simulation/oracle -I./simulation/traffic -I./simulation/simulator \
 	-I./apps/sybil/cliquer \
-	-I./simulation/mmwave \
+	-I./simulation/mmwave -I./simulation/bubble\
 	-I/usr/lib/i386-linux-gnu/glib-2.0/include \
 	-I/usr/lib/i386-linux-gnu/gtk-2.0/include \
 	-I/usr/include/gdk-pixbuf-2.0 \
         -I/usr/lib/x86_64-linux-gnu/glib-2.0/include \
         -I/usr/lib/x86_64-linux-gnu/gtk-2.0/include  \
-        -I/usr/local/include/igraph
-        
+        -I/usr/local/include/igraph\
+
+
 LIBS	= \
 	-L/usr/lib/i386-linux-gnu -lgtk-x11-2.0 -lgdk-x11-2.0 -latk-1.0 -lgdk_pixbuf-2.0 \
 	-lpangocairo-1.0 -lpango-1.0 -lcairo -lgobject-2.0 -lgmodule-2.0 -ldl -lglib-2.0 \
 	-lm -lpng12 -lpangoft2-1.0 -pthread
 
+
+
 CFLAGS	= -g -Wall -D_FILE_OFFSET_BITS=64
 
 .c.o:
 	@rm -f $@
-	$(CC) -c $(CFLAGS) $(INCLUDES) -o $@ $*.c
+	$(CC) -c $(CFLAGS) $(INCLUDES) -o $@ $*.c 
+.cpp.o:
+	$(CC) -cpp $(CFLAGS) $(INCLUDES) -o $@ $*.cpp 
 
 OBJ_VIEWER= \
 	common/common.o common/files.o \
@@ -53,12 +58,21 @@ OBJ_VIEWER= \
 OBJ_MAP	= \
 	common/common.o trace/trace.o \
 	geometry/geometry.o geometry/maptuner.o
+
+
+OBJ_BUBBLE = \
+	common/common.o trace/trace.o \
+	geometry/geometry.o \
+	simulation/bubble/parameters.o simulation/bubble/function.o\
+	simulation/bubble/bubble.o
+
 OBJ_MMWAVE = \
 	common/common.o trace/trace.o \
 	geometry/geometry.o \
 	simulation/mmwave/protocol.o simulation/mmwave/log_result.o simulation/mmwave/parameters.o\
         simulation/mmwave/function.o simulation/mmwave/weighted_blossom.o\
 	simulation/mmwave/mmwave.o
+
 OBJ_SIMULATION = \
         common/common.o trace/trace.o \
         geometry/geometry.o trace/mapsimulate.o \
@@ -270,7 +284,8 @@ CLEANFILES= \
 	simulation/oracle/oracle.o simulation/traffic/traffic.o simulation/traffic/gentraffic.o simulation/exprs/run_busnet.o simulation/exprs/run_adhoc_fwding.o simulation/exprs/run_data_dissemination.o \
 	simulation/event/event.o simulation/event/cntEvent.o simulation/event/busArriveCellEvent.o \
 	simulation/event/busMeetStorageEvent.o simulation/event/busMeetBusEvent.o \
-	simulation/event/taxiMeetBusEvent.o simulation/event/taxiMeetStorageEvent.o  
+	simulation/event/taxiMeetBusEvent.o simulation/event/taxiMeetStorageEvent.o \
+	simulation/bubble/parameters.o simulation/bubble/function.o  simulation/bubble/bubble.o
 	
 all:	clean mapviewer maptuner mmwave_simulation trace_generate mapsimulate pickshgps splitshgps dist contactfinder getroute \
 	pair_filter vmobility ict_redundency ict dividelist comset genmgd cutgd rmdefact getpdf getRoutesCoverage getRegionArea parsePkgDump getTraceBox strtot \
@@ -284,6 +299,8 @@ mapviewer: $(OBJ_VIEWER)
 	$(LINK) $(LDFLAGS) $(LDOUT)$@ $(OBJ_VIEWER)  $(LIBS)
 maptuner: $(OBJ_MAP) 
 	$(LINK) $(LDFLAGS) $(LDOUT)$@ $(OBJ_MAP)  $(LIBS)
+bubble: $(OBJ_BUBBLE)
+	$(LINK) $(LDFLAGS) $(LDOUT)$@ $(OBJ_BUBBLE) $(LIBS) -g
 mmwave_simulation: $(OBJ_MMWAVE)
 	$(LINK) $(LDFLAGS) $(LDOUT)$@ $(OBJ_MMWAVE) $(LIBS)
 trace_generate: $(OBJ_SIMULATION)

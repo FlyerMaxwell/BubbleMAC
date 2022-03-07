@@ -1,8 +1,9 @@
 // #pragma once
 #include "function.h"
-#include <iostream>
+// #include <iostream>
 // using namespace std;
 //--------------YX below--------------------------------------//
+
 int init_simulation(struct Region* region){
 	struct Item *aItem;
 	struct Cell *aCell;
@@ -33,8 +34,8 @@ int init_simulation(struct Region* region){
 					aCar->belongLaneID = -1;
 					aCar->slot_occupied = 1;  //
 					aCar->slot_condition = 0; //0 for no slot occupied, 1 for accessing slots and 2 for occupied already.
-					aCar->slot_oneHop = new int[SlotPerFrame];
-					aCar->slot_twoHop = new int[SlotPerFrame];
+					aCar->slot_oneHop = (int*)malloc(sizeof(int)*SlotPerFrame);
+					aCar->slot_twoHop = (int*)malloc(sizeof(int)*SlotPerFrame);
 					aCar->isExpansion = false;
 					aCar->car_role = ROLE_SINGLE;
 					aCar->radius_flag = 0;
@@ -56,6 +57,143 @@ int init_simulation(struct Region* region){
 	}
 	return 0;
 }
+
+
+int generate_car(struct Region *region) 		//new generate_car modified by hfc
+{
+	double xmin,ymin,xmax,ymax, x, y;
+	int flag, i, j, k, l;
+	struct Cell *aCell, *bCell;
+	struct Item *aItem, *bItem, *tItem, *nItem;
+	struct vehicle *bCar, *aCar, *tCar, *nCar;
+	struct neighbour_car* tNeigh, *nNeigh, *bNeigh;
+	FILE *carinfo;
+	char file_path[100];
+	int car_count=0;
+
+	xmin = region->chosen_polygon->box.xmin;
+	xmax = region->chosen_polygon->box.xmax;
+	ymin = region->chosen_polygon->box.ymin;
+	ymax = region->chosen_polygon->box.ymax;
+  
+	sprintf(file_path, "/home/lion/Desktop/hfc/vanet1.0_old/vanet1.0/car_position/carposition_%d_%d.txt", traffic_density, slot + 4000); //traffic density, slot number
+	carinfo = fopen(file_path, "r");
+	int carnum;
+	fscanf(carinfo, "%d", &carnum);
+	Car_Number = carnum;
+	for (k=0; k< carnum; k++){
+		struct vehicle *new_car;
+		new_car=(struct vehicle*)malloc(sizeof(struct vehicle));
+		fscanf(carinfo, "%d", &new_car->id);
+		fscanf(carinfo, "%lf", &new_car->x);
+		fscanf(carinfo, "%lf", &new_car->y);
+		fscanf(carinfo, "%lf", &new_car->a);
+		fscanf(carinfo, "%lf", &new_car->b);
+		fscanf(carinfo, "%lf", &new_car->v);		
+		fscanf(carinfo, "%lf", &new_car->belongLaneID);
+		fscanf(carinfo, "%lf", &new_car->dir_x);
+		fscanf(carinfo, "%lf", &new_car->dir_y);
+
+		new_car->handled = 2;
+		duallist_init(&new_car->history_neigh);
+		duallist_init(&new_car->choose_neigh);
+		duallist_init(&new_car->neighbours);
+		duallist_init(&new_car->real_neigh);
+		duallist_init(&new_car->known_neigh);
+//if (learning_cycle_num==2) printf("0.1\n");
+		flag = false;		
+		for(i = 0; i<region->hCells; i++){       
+			for(j = 0; j<region->vCells;j++) {
+				aCell = region->mesh + i*region->vCells + j;
+				if (aCell->box.xmin <= new_car->x && aCell->box.xmax > new_car->x && aCell->box.ymax > new_car->y && aCell->box.ymin <= new_car->y) {
+					flag=true;
+					break;
+				} //find the cell which contains the new car
+			}
+			if (flag==true) break;
+		}
+		new_car->belongCell = aCell;
+		// allCars[new_car->id] = new_car;	//*************************modified by hfc
+		flag = false;
+		for(i = 0; i<region->hCells; i++){       
+			for(j = 0; j<region->vCells;j++) {
+				bCell = region->mesh + i*region->vCells + j;
+				bItem = (struct Item*)bCell->cars.head;
+				while (bItem != NULL){
+					bCar = (struct vehicle*)bItem->datap;
+					if (bCar->id == new_car->id) {flag = true;break;}
+					bItem = bItem->next;
+				}
+				if (flag == true) break;
+			}
+			if (flag == true) break;
+		}
+//if (learning_cycle_num==2) printf("0.2\n");
+		if (flag == true) {
+			bCar->x = new_car->x;
+			bCar->y = new_car->y;
+			bCar->v = new_car->v;
+			bCar->belongCell = new_car->belongCell;
+			bCar->handled = 1;
+			duallist_pick_item(&bCell->cars, bItem);
+			duallist_add_to_tail(&aCell->cars, bCar);
+
+			if (bi_num%200 == 0) {
+				duallist_destroy(&bCar->history_neigh, NULL);
+				duallist_init(&bCar->history_neigh);
+				duallist_destroy(&bCar->neighbours, NULL);
+				duallist_init(&bCar->neighbours);
+			}
+//if (learning_cycle_num==2) printf("0.25\n");
+			else {
+				duallist_destroy(&bCar->neighbours, NULL);
+				duallist_init(&bCar->neighbours);
+			}
+
+			free(new_car);
+		}
+//if (learning_cycle_num==2) printf("0.3\n");
+		if (flag == false && bi_num%200==0) duallist_add_to_tail(&(aCell->cars), new_car);
+		if (flag == false && bi_num%200!=0) free(new_car);
+	}
+	
+//printf("1\n");
+	for(i = 0; i<region->hCells; i++){       
+			for(j = 0; j<region->vCells;j++) {
+				aCell = region->mesh + i*region->vCells + j;
+				aItem = aCell->cars.head;
+				while (aItem != NULL){
+					aCar = (struct vehicle*)aItem->datap;
+					tItem = aItem;
+					aItem = aItem->next;
+					if (aCar->handled ==0) {
+						bItem = aCar->history_neigh.head;
+						while (bItem !=NULL) {
+							bNeigh = (struct neighbour_car*)bItem->datap;
+							bCar = (struct vehicle*)bNeigh->carItem->datap;
+							nItem = bCar->history_neigh.head;
+							while (nItem !=NULL) {
+								nNeigh = (struct neighbour_car*)nItem->datap;
+								if (nNeigh->car_id ==aCar->id) {duallist_pick_item(&bCar->history_neigh, nItem); break;}
+								nItem = nItem->next;
+							}
+							bItem = bItem->next;
+						}
+						duallist_pick_item(&aCell->cars, tItem); 
+						free(aCar);
+					}
+					else car_count++;
+				}
+			}
+	}
+
+	fclose(carinfo);
+
+  //printf("\ntotal car number in this BI: %d\n", car_count);
+ 
+  return 0;
+}
+
 
 //handle neighbors： 处理邻居，将所有车辆的所在的九宫格内的车挂载到其潜在的neighbors中。
 void handle_neighbors(struct Region* region){
@@ -86,8 +224,6 @@ void handle_neighbors(struct Region* region){
         }
     }
 }
-
-
 
 
 void handle_transmitter(struct Region* region, struct Duallist *Collisions, int slot){
@@ -172,6 +308,37 @@ void handle_receiver(struct Region* region, struct Duallist* Collisions, int slo
 }
 
 
+
+double distance_between_vehicle(const struct vehicle* aCar, const struct vehicle* bCar){
+    return sqrt((aCar->x - bCar->x)* (aCar->x - bCar->x) + (aCar->y - bCar->y)*(aCar->y - bCar->y));
+}
+
+struct packet * generate_packet(struct vehicle *aCar, int slot){
+    struct packet* pkt;
+    pkt = (struct packet*)malloc(sizeof(struct packet));
+    pkt->slot = slot;
+    pkt->condition = 0;//还没有发生碰撞
+    pkt->srcVehicle = aCar;
+    pkt->isQueueing = aCar->isQueueing;
+    pkt->slot_resource_oneHop_snapShot = (int*)malloc(sizeof(int)*SlotPerFrame);
+    for(int i = 0; i < SlotPerFrame; i++){
+        pkt->slot_resource_oneHop_snapShot[i] = aCar->slot_oneHop[i];
+    }
+    return pkt;
+}
+
+
+struct collision* generate_collision(struct vehicle *aCar, struct vehicle *bCar,  int type, int slot){
+    struct collision * coli;
+    coli = (struct collision*)malloc(sizeof(struct collision));
+    coli->type = type;
+    coli->slot = slot;
+    coli->src = aCar;
+    coli->dst = bCar;
+    return coli;
+}
+
+
 void log_collisions(struct Region* region, struct Duallist* Collisions){
     char output_collisions_path[100];
     FILE * Collisions_output;
@@ -187,38 +354,12 @@ void log_collisions(struct Region* region, struct Duallist* Collisions){
     fclose(Collisions_output);
 }
 
-double distance_between_vehicle(const struct vehicle* aCar, const struct vehicle* bCar){
-    return sqrt((aCar->x - bCar->x)* (aCar->x - bCar->x) + (aCar->y - bCar->y)*(aCar->y - bCar->y));
-}
 
-struct packet * generate_packet(struct vehicle *aCar, int slot){
-    struct packet* pkt;
-    pkt = (struct packet*)malloc(sizeof(struct packet));
-    pkt->slot = slot;
-    pkt->condition = 0;//还没有发生碰撞
-    pkt->srcVehicle = aCar;
-    pkt->isQueueing = aCar->isQueueing;
-    pkt->slot_resource_oneHop_snapShot = new int[SlotPerFrame];
-    for(int i = 0; i < SlotPerFrame; i++){
-        pkt->slot_resource_oneHop_snapShot[i] = aCar->slot_oneHop[i];
-    }
-    return pkt;
-}
-
-struct collision* generate_collision(struct vehicle *aCar, struct vehicle *bCar,  int type, int slot){
-    struct collision * coli;
-    coli = (struct collision*)malloc(sizeof(struct collision));
-    coli->type = type;
-    coli->slot = slot;
-    coli->src = aCar;
-    coli->dst = bCar;
-    return coli;
-}
 
 //if tCar is in front of aCar, return true, if not, return false.
 bool IsFront(struct vehicle *aCar, struct vehicle *tCar){
 	if(aCar->dir_x != tCar->dir_x || aCar->dir_y != tCar -> dir_y){
-		std::cout<<"Error: the compared two cars are not in the same lane."<<endl;
+		printf("Error: the compared two cars are not in the same lane.\n");
 		exit(1);
 	}
 	if(aCar->dir_x > 0 && aCar->dir_y > 0)
@@ -231,7 +372,7 @@ bool IsFront(struct vehicle *aCar, struct vehicle *tCar){
 		return (tCar->x < aCar->x) && (tCar->y < aCar->y);
     
     if(aCar->dir_x != tCar->dir_x || aCar->dir_y != tCar -> dir_y){
-		std::cout<<"Error: the compared two cars are not in the same lane."<<endl;
+		printf("Error: the compared two cars are not in the same lane.\n");
 		exit(1);
 	}
 }
@@ -239,7 +380,7 @@ bool IsFront(struct vehicle *aCar, struct vehicle *tCar){
 //车辆aCar收到一个pkt，将pkt对应的车辆加入到Front或Rear中
 void insertFrontRear(struct vehicle *aCar, struct packet *pkt){
 	if(aCar == NULL || pkt == NULL){
-		std::cout<<"insertFrontRear Error!"<<endl;
+		printf("insertFrontRear Error!\n");
 		exit(1);
 	}
     if(IsFront(aCar, pkt->srcVehicle)){//pkt来源于前面的一个车
@@ -250,25 +391,62 @@ void insertFrontRear(struct vehicle *aCar, struct packet *pkt){
             newp->prev = newp;
             aCar->frontV.head = newp;
         }else{
-           if(distance_between_vehicle(aCar, aCar->frontV.head->datap) > distance_between_vehicle(aCar, pkt->srcVehicle))
+           if(distance_between_vehicle(aCar, (struct vehicle*)aCar->frontV.head->datap) > distance_between_vehicle(aCar, pkt->srcVehicle))
                 aCar->frontV.head->datap = pkt->srcVehicle;//此包的车为最近的车
         }
 
     }else{//pkt来源于后面的一个车
         struct Item* newp = (struct Item*)malloc(sizeof(struct Item));
 	    newp->datap = pkt->srcVehicle;
-        if(aCar->rearV == NULL){//若当前无rearV
+        if(aCar->rearV.head == NULL){//若当前无rearV
             newp->next = NULL;
             newp->prev = newp;
             aCar->rearV.head = newp;
         }else{
-           if(distance_between_vehicle(aCar, aCar->rearV.head->datap) > distance_between_vehicle(aCar, pkt->srcVehicle))
+           if(distance_between_vehicle(aCar, (struct vehicle*)aCar->rearV.head->datap) > distance_between_vehicle(aCar, pkt->srcVehicle))
                 aCar->rearV.head->datap = pkt->srcVehicle;//此包的车为最近的车
         }
 
     }
 }
+
+
 //----------------------YX above---------------------//
+
+
+
+
+
+
+
+
+int randSlot(int* occupied, int div){
+	int len = SlotPerFrame - 2, start = 0;
+	int ret = 0;
+	if (div = -1){					//取前一半可用槽
+		len >>= 1;
+	}
+	else if(div == 1){
+		start = len;
+	}
+
+	int index = rand()%(len - start);
+	for(int i = start; i < len; i++){
+		if(occupied[i] == -1){
+			index--;
+			if(index == 0)
+				return i;
+		}
+	}
+	
+	
+	return ret;
+}
+int randSlot(int* occupied){
+	return randSlot(occupied, 0);
+}
+
+
 
 
 
@@ -405,140 +583,7 @@ void insertFrontRear(struct vehicle *aCar, struct packet *pkt){
  
 //   return 0;
 // }
-int generate_car(struct Region *region) 		//new generate_car modified by hfc
-{
-	double xmin,ymin,xmax,ymax, x, y;
-	int flag, i, j, k, l;
-	struct Cell *aCell, *bCell;
-	struct Item *aItem, *bItem, *tItem, *nItem;
-	struct vehicle *bCar, *aCar, *tCar, *nCar;
-	struct neighbour_car* tNeigh, *nNeigh, *bNeigh;
-	FILE *carinfo;
-	char file_path[100];
-	int car_count=0;
 
-	xmin = region->chosen_polygon->box.xmin;
-	xmax = region->chosen_polygon->box.xmax;
-	ymin = region->chosen_polygon->box.ymin;
-	ymax = region->chosen_polygon->box.ymax;
-  
-	sprintf(file_path, "/home/lion/Desktop/hfc/vanet1.0_old/vanet1.0/car_position/carposition_%d_%d.txt", traffic_density, slot + 4000); //traffic density, slot number
-	carinfo = fopen(file_path, "r");
-	int carnum;
-	fscanf(carinfo, "%d", &carnum);
-	Car_Number = carnum;
-	for (k=0; k< carnum; k++){
-		struct vehicle *new_car;
-		new_car=(struct vehicle*)malloc(sizeof(struct vehicle));
-		fscanf(carinfo, "%d", &new_car->id);
-		fscanf(carinfo, "%lf", &new_car->x);
-		fscanf(carinfo, "%lf", &new_car->y);
-		fscanf(carinfo, "%lf", &new_car->a);
-		fscanf(carinfo, "%lf", &new_car->b);
-		fscanf(carinfo, "%lf", &new_car->v);		
-		fscanf(carinfo, "%lf", &new_car->belongLaneID);
-		fscanf(carinfo, "%lf", &new_car->dir_x);
-		fscanf(carinfo, "%lf", &new_car->dir_y);
-
-		new_car->handled = 2;
-		duallist_init(&new_car->history_neigh);
-		duallist_init(&new_car->choose_neigh);
-		duallist_init(&new_car->neighbours);
-		duallist_init(&new_car->real_neigh);
-		duallist_init(&new_car->known_neigh);
-//if (learning_cycle_num==2) printf("0.1\n");
-		flag = false;		
-		for(i = 0; i<region->hCells; i++){       
-			for(j = 0; j<region->vCells;j++) {
-				aCell = region->mesh + i*region->vCells + j;
-				if (aCell->box.xmin <= new_car->x && aCell->box.xmax > new_car->x && aCell->box.ymax > new_car->y && aCell->box.ymin <= new_car->y) {
-					flag=true;
-					break;
-				} //find the cell which contains the new car
-			}
-			if (flag==true) break;
-		}
-		new_car->belongCell = aCell;
-		allCars[new_car->id] = new_car;	//*************************modified by hfc
-		flag = false;
-		for(i = 0; i<region->hCells; i++){       
-			for(j = 0; j<region->vCells;j++) {
-				bCell = region->mesh + i*region->vCells + j;
-				bItem = (struct Item*)bCell->cars.head;
-				while (bItem != NULL){
-					bCar = (struct vehicle*)bItem->datap;
-					if (bCar->id == new_car->id) {flag = true;break;}
-					bItem = bItem->next;
-				}
-				if (flag == true) break;
-			}
-			if (flag == true) break;
-		}
-//if (learning_cycle_num==2) printf("0.2\n");
-		if (flag == true) {
-			bCar->x = new_car->x;
-			bCar->y = new_car->y;
-			bCar->v = new_car->v;
-			bCar->belongCell = new_car->belongCell;
-			bCar->handled = 1;
-			duallist_pick_item(&bCell->cars, bItem);
-			duallist_add_to_tail(&aCell->cars, bCar);
-
-			if (bi_num%200 == 0) {
-				duallist_destroy(&bCar->history_neigh, NULL);
-				duallist_init(&bCar->history_neigh);
-				duallist_destroy(&bCar->neighbours, NULL);
-				duallist_init(&bCar->neighbours);
-			}
-//if (learning_cycle_num==2) printf("0.25\n");
-			else {
-				duallist_destroy(&bCar->neighbours, NULL);
-				duallist_init(&bCar->neighbours);
-			}
-
-			free(new_car);
-		}
-//if (learning_cycle_num==2) printf("0.3\n");
-		if (flag == false && bi_num%200==0) duallist_add_to_tail(&(aCell->cars), new_car);
-		if (flag == false && bi_num%200!=0) free(new_car);
-	}
-	
-//printf("1\n");
-	for(i = 0; i<region->hCells; i++){       
-			for(j = 0; j<region->vCells;j++) {
-				aCell = region->mesh + i*region->vCells + j;
-				aItem = aCell->cars.head;
-				while (aItem != NULL){
-					aCar = (struct vehicle*)aItem->datap;
-					tItem = aItem;
-					aItem = aItem->next;
-					if (aCar->handled ==0) {
-						bItem = aCar->history_neigh.head;
-						while (bItem !=NULL) {
-							bNeigh = (struct neighbour_car*)bItem->datap;
-							bCar = (struct vehicle*)bNeigh->carItem->datap;
-							nItem = bCar->history_neigh.head;
-							while (nItem !=NULL) {
-								nNeigh = (struct neighbour_car*)nItem->datap;
-								if (nNeigh->car_id ==aCar->id) {duallist_pick_item(&bCar->history_neigh, nItem); break;}
-								nItem = nItem->next;
-							}
-							bItem = bItem->next;
-						}
-						duallist_pick_item(&aCell->cars, tItem); 
-						free(aCar);
-					}
-					else car_count++;
-				}
-			}
-	}
-
-	fclose(carinfo);
-
-  //printf("\ntotal car number in this BI: %d\n", car_count);
- 
-  return 0;
-}
 
 
 void update_vehicle_info(struct Region *region)
@@ -729,29 +774,7 @@ bool curInFront(const struct vehicle* cur, const struct vehicle* tar){
 	return ((cur->x - tar->x) * cur->dir_x > 0) || (((cur->x - tar->x) * cur->dir_x == 0) && (cur->y - tar->y) * cur->dir_y > 0);
 }
 
-int randSlot(int* occupied, int div){
-	int len = 0;
-	int ret = 0;
-	unordered_map<int, int> tab;
-	for(int i = 0; i < SlotPerFrame; i++){
-		if(occupied[i] == -1){
-			tab[len++] = i;
-		}
-	}
-	if (div = -1){					//取后一半可用槽
-		len >>= 1;
-		ret = tab[len + rand()%len];
-	}
-	else{
-		len >>= div;
-		ret = tab[rand()%len];
-	}
-	tab.clear();
-	return ret;
-}
-int randSlot(int* occupied){
-	return randSlot(occupied, 0);
-}
+
 
 void Degrade(struct vehicle* cur_vehicle){
 
