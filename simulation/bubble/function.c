@@ -26,6 +26,30 @@ int init_simulation(struct Region* region){
 	return 0;
 }
 
+void clearPackets(struct Region* region){
+    struct Item *aItem;
+	struct Cell *aCell;
+	struct vehicle *aCar;
+
+	for(int i = 0; i < region->hCells; i++){       
+		for(int j = 0; j < region->vCells;j++) {
+			aCell = region->mesh + i*region->vCells + j;
+			if (aCell->cars.head == NULL) continue;
+			aItem = aCell->cars.head;
+			while (aItem != NULL){
+				aCar = (struct vehicle*)aItem->datap;
+//-----------------------需要初始化的内容---------------------------//
+				duallist_destroy(&(aCar->packets),NULL);
+                duallist_destroy(&(aCar->frontV),NULL);
+                duallist_destroy(&(aCar->rearV),NULL);
+//-----------------------需要初始化的内容---------------------------//
+                aItem = aItem->next;	
+			}
+		}
+	}
+	// return 0;
+}
+
 
 void update_cars(struct Region *region) 		//new generate_car modified by hfc
 {
@@ -396,15 +420,20 @@ int randSlot(int* occupied, int div){
 		start = len;
 	}
 
-	int index = rand()%(len - start);
+	int index = 0;
 	for(int i = start; i < len; i++){
+		if(occupied[i] == -1){
+			index++;
+		}
+	}
+	index = rand()%index;
+    for(int i = start; i < len; i++){
 		if(occupied[i] == -1){
 			index--;
 			if(index == 0)
 				return i;
 		}
 	}
-	
 	
 	return ret;
 }
@@ -617,7 +646,9 @@ void degrade(struct vehicle* cur_vehicle){		//退化为单车
 }
 
 void applyForSlot(struct vehicle* cur_vehicle){
+    int i = 0;
 	for(struct Item* p = cur_vehicle->packets.head; p != NULL; p = p->next){        //申请成功
+        printf("times: %d", i++);
 		struct packet* cur_packet = (struct packet*)p->datap;
 		struct vehicle* target_vehicle = cur_packet->srcVehicle;
 		double dis = vehicleDistance(cur_vehicle, target_vehicle);
@@ -633,7 +664,7 @@ void applyForSlot(struct vehicle* cur_vehicle){
 
 //bubblle MAC, to determine slot and communication range.
 void bubble_mac_protocol(struct Region* aRegion){
-
+    
     struct Cell *aCell, *nCell;
     struct Item *aItem, *nItem;
     struct vehicle* cur_vehicle;
@@ -667,12 +698,7 @@ void bubble_mac_protocol(struct Region* aRegion){
                                         cur_vehicle->car_role = ROLE_HEAD;
                                         cur_vehicle->commRadius = max(safeDistance(cur_vehicle, NULL), dis);
                                         cur_vehicle->radius_flag = true;
-										//becomeHead(cur_vehicle, cur_packet)
-                                        // cur_vehicle->slot_oneHop[HEAD_SLOT] = cur_vehicle->id;
 
-                                        // if(target_vehicle->car_role == ROLE_SINGLE){
-                                        //     cur_vehicle->slot_oneHop[TAIL_SLOT] = target_vehicle->id;
-                                        // }
 
                                     }
                                     else{   //当前车在后，申请成为新车尾
@@ -681,12 +707,6 @@ void bubble_mac_protocol(struct Region* aRegion){
                                         cur_vehicle->car_role = ROLE_TAIL;
                                         cur_vehicle->commRadius = dis; //min(safeDistance(cur_vehicle, target_vehicle), dis);
                                         cur_vehicle->radius_flag = true;
-                                    
-                                        // cur_vehicle->slot_oneHop[TAIL_SLOT] = cur_vehicle->id;
-
-                                        // if(target_vehicle->car_role == ROLE_SINGLE){
-                                        //     cur_vehicle->slot_oneHop[HEAD_SLOT] = target_vehicle->id;
-                                        // }
 
                                     }
                                     break;                                       
@@ -713,19 +733,13 @@ void bubble_mac_protocol(struct Region* aRegion){
                                     degrade(cur_vehicle);
 
                                 }
-                                else if(cur_packet->slot_resource_oneHop_snapShot[HEAD_SLOT] != cur_vehicle->id){   //Merge
+                                else if(cur_packet->slot_resource_oneHop_snapShot[HEAD_SLOT] != cur_vehicle->id){   //cur_vehicle与前车merge
                                     cur_vehicle->slot_occupied = randSlot(cur_vehicle->slot_oneHop, -1);
                                     cur_vehicle->slot_condition = 1;
                                     cur_vehicle->car_role = ROLE_MID;
                                     cur_vehicle->commRadius = dis; //min(safeDistance(cur_vehicle, target_vehicle), dis);
                                     cur_vehicle->radius_flag = true;
-                                    
-                                    // cur_vehicle->slot_oneHop[cur_vehicle->slot_occupied] = cur_vehicle->id;
 
-                                    // if(target_vehicle->car_role == ROLE_SINGLE){
-                                    //     cur_vehicle->slot_oneHop[HEAD_SLOT] = target_vehicle->id;
-                                    // }                                            
-                                    // function(1, 2, 3, 4, 5, 6)
                                 }
                             }
                         }
@@ -753,13 +767,7 @@ void bubble_mac_protocol(struct Region* aRegion){
                                     cur_vehicle->slot_condition = 1;
                                     cur_vehicle->car_role = ROLE_MID;
                                     cur_vehicle->commRadius = max(safeDistance(cur_vehicle, target_vehicle), dis);
-                                    cur_vehicle->radius_flag = true;
-                                    
-                                    cur_vehicle->slot_oneHop[cur_vehicle->slot_occupied] = cur_vehicle->id;
-
-                                    if(target_vehicle->car_role == ROLE_SINGLE){
-                                        cur_vehicle->slot_oneHop[TAIL_SLOT] = target_vehicle->id;
-                                    }                                            
+                                    cur_vehicle->radius_flag = true;                                         
                                 }
                             }
                         }
@@ -774,7 +782,7 @@ void bubble_mac_protocol(struct Region* aRegion){
                             applyForSlot(cur_vehicle);
                         }
                         else{//车中已确认时槽
-                                for(struct Item* p = cur_vehicle->packets.head; p != NULL; p = p->next){        //申请成功
+                            for(struct Item* p = cur_vehicle->packets.head; p != NULL; p = p->next){        //申请成功
                                 struct packet* cur_packet = (struct packet*)p->datap;
                                 struct vehicle* target_vehicle = cur_packet->srcVehicle;
                                 double dis = vehicleDistance(cur_vehicle, target_vehicle);
@@ -787,10 +795,10 @@ void bubble_mac_protocol(struct Region* aRegion){
 
                                         struct vehicle* front = (struct vehicle*)cur_vehicle->frontV.head->datap;
                                         
-                                        cur_vehicle->commRadius = min(safeDistance(cur_vehicle, front),vehicleDistance(cur_vehicle, front));
+                                        cur_vehicle->commRadius = vehicleDistance(cur_vehicle, front); //min(safeDistance(cur_vehicle, front),vehicleDistance(cur_vehicle, front));
                                         cur_vehicle->radius_flag = true;
 
-                                        cur_vehicle->slot_oneHop[cur_vehicle->slot_occupied] = cur_vehicle->id;
+                                        // cur_vehicle->slot_oneHop[cur_vehicle->slot_occupied] = cur_vehicle->id;
                                     }
                                     else{
                                         cur_vehicle->slot_occupied = HEAD_SLOT;
@@ -802,7 +810,7 @@ void bubble_mac_protocol(struct Region* aRegion){
                                         cur_vehicle->commRadius = max(safeDistance(cur_vehicle, rear), vehicleDistance(cur_vehicle, rear));
                                         cur_vehicle->radius_flag = true;
 
-                                        cur_vehicle->slot_oneHop[cur_vehicle->slot_occupied] = cur_vehicle->id;
+                                        // cur_vehicle->slot_oneHop[cur_vehicle->slot_occupied] = cur_vehicle->id;
                                     }
                                 }
                             }
@@ -811,9 +819,8 @@ void bubble_mac_protocol(struct Region* aRegion){
                     }
                     default: {printf("default\n");break;}
 
-					//删除包
                 }
-            
+                aItem = aItem->next;	
             }
         }
     }
@@ -855,7 +862,7 @@ void bubble_mac_protocol(struct Region* aRegion){
                     }
                 }
     
-    
+                aItem = aItem->next;	
             }
         }
     }
