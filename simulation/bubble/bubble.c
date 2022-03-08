@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
     aRegion = region_load_func(fsource, NULL, -1);
     fclose(fsource);
     printf("The map %s has been loaded.\n",usedMap);
-    printf("%lf\n",aRegion->cellSize);//cellsize错了，剑钢说暂不影响
+    printf("%lf\n",aRegion->cellSize);//cellsize错了，剑钢说暂不影响,three_lane.map的region尺寸为1 Cell*7 Cell。其中每个Cell为150m *150m
 
     // Simulation in sequence style.
 	for (slot = 0; slot < 300; slot++){//carposition从4000-5999，合计2000个文件，10秒
@@ -57,6 +57,7 @@ int main(int argc, char *argv[]) {
         // // Determine the slot and comm. range at the beginning of each frame
         if(slot % SlotPerFrame == 0){
             bubble_mac_protocol(aRegion);
+            //clearPackets()
         }
 
         // //handle the transmitter at each slot
