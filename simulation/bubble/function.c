@@ -8,8 +8,8 @@ int init_simulation(struct Region* region){
 	struct Cell *aCell;
 	struct vehicle *aCar;
 
-	for(int i = 0; i < region->hCells; i++){       
-		for(int j = 0; j < region->vCells;j++) {
+	for(unsigned int i = 0; i < region->hCells; i++){       
+		for(unsigned int j = 0; j < region->vCells;j++) {
 			aCell = region->mesh + i*region->vCells + j;
 			if (aCell->cars.head == NULL) continue;
 			aItem = aCell->cars.head;
@@ -186,7 +186,7 @@ void update_cars(struct Region *region) 		//new generate_car modified by hfc
 }
 
 
-//handle neighbors： 处理邻居，将所有车辆的所在的九宫格内的车挂载到其潜在的neighbors中。
+//handle neighbors： 处理邻居，将所有车辆的所在的九宫格内的车挂载到其潜在的neighbors中,即每个车辆的neighbors就是当前九宫格内的邻居。
 void handle_neighbours(struct Region* region){
     struct Cell *aCell, *nCell;
     struct Item *aItem, *nItem;
@@ -195,22 +195,28 @@ void handle_neighbours(struct Region* region){
     for(int i = 0; i<region->hCells; i++){       
 		for(int j = 0; j<region->vCells;j++) {
 			aCell = region->mesh + i*region->vCells + j;
+            printf("Current Cell is : %d %d\n", aCell->xNumber, aCell->yNumber);
+
 			int neighbour_cell[9][2] = {{i-1,j-1}, {i,j-1}, {i+1,j-1}, {i-1,j}, {i,j}, {i+1,j}, {i-1,j+1}, {i,j+1}, {i+1,j+1}};
             if (aCell->cars.head == NULL) continue;
             aItem = aCell->cars.head;
-            while(aItem!=NULL){
+            
+            while(aItem != NULL){
                 aCar = (struct vehicle*)aItem->datap;
-                for(int k = 0; i<9 ;k++){
+                for(int k = 0; k < 9 ; k++){
                     if ((neighbour_cell[k][0]<0 || neighbour_cell[k][0]>=region->hCells) || (neighbour_cell[k][1]<0 || neighbour_cell[k][1]>=region->vCells)) continue;
+
                     int tmpx = neighbour_cell[k][0], tmpy = neighbour_cell[k][1];
-                    nCell = aCell = region->mesh + tmpx*region->vCells + tmpy;
-                    nItem = nCell->cars.head;
+                    nCell = region->mesh + tmpx*region->vCells + tmpy;//找到当前的cell
+    
+                    nItem = nCell->cars.head;//遍历当前cell中的每个车
                     while(nItem != NULL){
                         nCar = (struct vehicle*)nItem->datap;
-						if (nCar->id == aCar->id) {nItem = nItem->next; continue;} //ncar is the same car with acar
-                        duallist_add_to_tail(&(aCar->neighbours), nCar);
+						if (nCar->id != aCar->id)  duallist_add_to_tail(&(aCar->neighbours), nCar);//将id不同的车加入到neighbor list。
+                        nItem = nItem->next;
                     }
                 }
+                aItem = aItem->next;
             }
         }
     }
@@ -222,26 +228,41 @@ void handle_neighbours(struct Region* region){
 
 
 
-
+//处理发包过程
 void handle_transmitter(struct Region* region, struct Duallist *Collisions, int slot){
     struct Cell *aCell;
     struct Item *aItem, *bItem;
     struct vehicle *aCar, *bCar;
     struct neighbour_car* bneigh;
 
-    for(int i = 0; i<region->hCells; i++){       
-        for(int j = 0; j<region->vCells;j++) {
+    int cnt_now_car = 0;
+
+    for(int i = 0; i < region->hCells; i++){       
+        for(int j = 0; j<region->vCells; j++) {
             aCell = region->mesh + i*region->vCells + j;
             aItem = aCell->cars.head;
-            while (aItem != NULL){
-                aCar = (struct vehicle*)aItem->datap;
-                if(aCar->slot_occupied != slot) continue; //忽略掉receiver
+            //printf("test0\n");
 
-                bItem = (struct Item*)aCar->neighbours.head;
+            while (aItem != NULL){
+                aCar = (struct vehicle*)aItem->datap;\
+                //printf("slot: %d, Vehicle No: %d, slot_condition: %d, slot_occupied: %d \n",slot, aCar->id,aCar->slot_condition, aCar->slot_occupied);
+
+
+                if(aCar->slot_occupied != slot){
+                    aItem = aItem->next; //忽略掉receiver
+                    continue;
+                }  
+
+                printf("Current Slot: %d, Current Transmitter: %d\n", slot, aCar->id);//对当前时槽正好发射的节点进行操作
+
+                bItem = (struct Item*)aCar->neighbours.head;//遍历当前transmitter的邻居节点
                 while (bItem != NULL) {
                     bCar =  (struct vehicle*)bItem->datap;
-                    if(aCar->commRadius < distance_between_vehicle(aCar, bCar)) continue;   //超出通信半径
-                    else{
+                    printf("%d 's neighbor is %d\n", aCar->id, bCar->id);
+                    if(aCar->commRadius < distance_between_vehicle(aCar, bCar)){
+                        bItem = bItem->next;
+                        continue;
+                    }else{
                         if(bCar->slot_occupied == aCar->slot_occupied){
                             struct collision* coli =  generate_collision(aCar,bCar,0,slot);
                             duallist_add_to_tail(Collisions, coli);
@@ -660,6 +681,8 @@ void applyForSlot(struct vehicle* cur_vehicle){
 		}
 	}
 }
+
+
 
 
 //bubblle MAC, to determine slot and communication range.

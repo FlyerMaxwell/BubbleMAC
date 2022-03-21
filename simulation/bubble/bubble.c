@@ -16,13 +16,14 @@
 
 // argv[0]: name of program, argv[1]: choose a map, argv[2]: define para or not
 int main(int argc, char *argv[]) {
-
+    srand((unsigned int)time(0));
     FILE *fsource;
     struct Region *aRegion = NULL;
     struct Duallist AllCollisions;
+    srand(0);
 
     //默认参数
-    int seq_num = 3, traffic_density = 40;
+    int seq_num = 3, traffic_density = 40;//traffic_density是指单向车道上的车辆密度，双向车道上车道数*2
     char usedMap[20]="three_lane.map"; 
     
     // if (argc == 1) {
@@ -45,25 +46,27 @@ int main(int argc, char *argv[]) {
     printf("%lf\n",aRegion->cellSize);//cellsize错了，剑钢说暂不影响,three_lane.map的region尺寸为1 Cell*7 Cell。其中每个Cell为150m *150m
 
     // Simulation in sequence style.
-	for (slot = 0; slot < 300; slot++){//carposition从4000-5999，合计2000个文件，10秒
+	for (slot = 0; slot < 3; slot++){//carposition从4000-5999，合计2000个文件，10秒
         //Update vehicles' location.
+        // printf("the slot is %d\n", slot);
         if(slot % UpLocSlot == 0) { //每UpLocSlot更新位置,每SlotPerFrame*nFrameSta添加新车
             init_simulation(aRegion);
             update_cars(aRegion);
-            //handle_neighbours(aRegion);
-            printf("slot = %d\n", slot);
+            handle_neighbours(aRegion);
+            printf("The simulator has been init, the neighbors have been handle, Current slot = %d\n", slot);
         }
         
         // // Determine the slot and comm. range at the beginning of each frame
         if(slot % SlotPerFrame == 0){
             bubble_mac_protocol(aRegion);
-            //clearPackets()
+            clearPackets(aRegion);
         }
 
-        // //handle the transmitter at each slot
-        // handle_transmitter(aRegion, &AllCollisions, slot);
+        //printf("Handling Tx and Rx..\n");
+        //handle the transmitter at each slot
+        handle_transmitter(aRegion, &AllCollisions, slot);
         // //handle the receiver at each slot
-        // handle_receiver(aRegion, &AllCollisions, slot);
+        //handle_receiver(aRegion, &AllCollisions, slot);
         
     }  
         // // Log collisions. 如果一次性写入文件太大，则放进循环多次写入;或直接写入文件
