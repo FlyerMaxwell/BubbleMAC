@@ -224,9 +224,9 @@ void handle_neighbours(struct Region* region){
 
 
 
-
-
-
+double distance_between_vehicle(const struct vehicle* aCar, const struct vehicle* bCar){
+    return sqrt((aCar->x - bCar->x)* (aCar->x - bCar->x) + (aCar->y - bCar->y)*(aCar->y - bCar->y));
+}
 
 //处理发包过程
 void handle_transmitter(struct Region* region, struct Duallist *Collisions, int slot){
@@ -258,11 +258,14 @@ void handle_transmitter(struct Region* region, struct Duallist *Collisions, int 
                 bItem = (struct Item*)aCar->neighbours.head;//遍历当前transmitter的邻居节点
                 while (bItem != NULL) {
                     bCar =  (struct vehicle*)bItem->datap;
-                    printf("%d 's neighbor is %d\n", aCar->id, bCar->id);
-                    if(aCar->commRadius < distance_between_vehicle(aCar, bCar)){
+                    //printf("%d 's neighbor is %d\n", aCar->id, bCar->id);
+                    double distanceAB = distance_between_vehicle(aCar, bCar);
+                    if(aCar->commRadius < distanceAB){
+                        printf("%d 's Comm Range is: %lf, OutRange neighbor is %d, distance is %lf\n",aCar->id,  aCar->commRadius, bCar->id,distanceAB);
                         bItem = bItem->next;
                         continue;
                     }else{
+                        printf("%d 's Comm Range is: %lf, InRange neighbor is %d, distance is :%lf\n", aCar->id,aCar->commRadius, bCar->id, distanceAB);
                         if(bCar->slot_occupied == aCar->slot_occupied){
                             struct collision* coli =  generate_collision(aCar,bCar,0,slot);
                             duallist_add_to_tail(Collisions, coli);
@@ -326,10 +329,6 @@ void handle_receiver(struct Region* region, struct Duallist* Collisions, int slo
 }
 
 
-
-double distance_between_vehicle(const struct vehicle* aCar, const struct vehicle* bCar){
-    return sqrt((aCar->x - bCar->x)* (aCar->x - bCar->x) + (aCar->y - bCar->y)*(aCar->y - bCar->y));
-}
 
 struct packet * generate_packet(struct vehicle *aCar, int slot){
     struct packet* pkt;
