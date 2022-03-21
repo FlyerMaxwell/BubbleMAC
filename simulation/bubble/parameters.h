@@ -23,6 +23,8 @@ extern int HEAD_SLOT;
 extern int TAIL_SLOT;
 extern int nFrameSta;
 extern int cnt_pkt;
+extern int cnt_coli;
+extern int cnt_received;
 // extern unordered_map<int, struct vehicle*> allCars;
 // extern int ROLE_SINGLE;
 // extern int ROLE_HEAD;

@@ -12,6 +12,8 @@ int HEAD_SLOT = 1;
 int TAIL_SLOT = 199;
 int nFrameSta =10;//每隔多少帧更新场上的车辆（纳入统计）
 int cnt_pkt = 0;
+int cnt_coli = 0;
+int cnt_received = 0;
 
 
 //time granularity: 10us as 1
@@ -35,7 +37,7 @@ int timestamp =0;
 int bi_num=0;
 int lane_num=2;
 int simulation_speed =1;
-int traffic_density=40;
+int traffic_density=60;//在这里改才是全局的！！！
 
 int magic_number =7;
 int log_data = 0;

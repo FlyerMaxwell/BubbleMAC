@@ -22,7 +22,7 @@ int main(int argc, char *argv[]) {
     srand(0);
 
     //默认参数
-    int seq_num = 3, traffic_density = 40;//traffic_density是指单向车道上的车辆密度，双向车道上车道数*2
+    int seq_num = 3;//traffic_density是指单向车道上的车辆密度，双向车道上车道数*2
     char usedMap[20]="three_lane.map"; 
     
     // if (argc == 1) {
@@ -45,7 +45,8 @@ int main(int argc, char *argv[]) {
     printf("%lf\n",aRegion->cellSize);//cellsize错了，剑钢说暂不影响,three_lane.map的region尺寸为1 Cell*7 Cell。其中每个Cell为150m *150m
 
     // Simulation in sequence style.
-	for (slot = 0; slot < 3; slot++){//carposition从4000-5999，合计2000个文件，10秒
+	for (slot = 0; slot < 4000; slot++){//carposition从4000-5999，合计2000个文件，10秒
+        printf("%d\n",slot);
         //Update vehicles' location.
         // printf("the slot is %d\n", slot);
         if(slot % UpLocSlot == 0) { //每UpLocSlot更新位置,每SlotPerFrame*nFrameSta添加新车
@@ -54,8 +55,8 @@ int main(int argc, char *argv[]) {
             handle_neighbours(aRegion);
             printf("The simulator has been init, the neighbors have been handle, Current slot = %d\n", slot);
         }
-        
-        // // Determine the slot and comm. range at the beginning of each frame
+
+        // Determine the slot and comm. range at the beginning of each frame
         if(slot % SlotPerFrame == 0){
             bubble_mac_protocol(aRegion);
             clearPackets(aRegion);
@@ -66,8 +67,34 @@ int main(int argc, char *argv[]) {
         handle_transmitter(aRegion, slot);
         //handle the receiver at each slot
         handle_receiver(aRegion, slot);
-    }  
+    }
+    printf("Car/km:%d\n Total Cars: %d\n Total Transmited Packets: %d\n Total Received Packet: %d\n Total Collisions: %d\n ", traffic_density,Car_Number,cnt_pkt, cnt_received, cnt_coli);
         
     return 0;
 }
+
+
+//输出某个节点的neighbors
+        // struct Cell* aCell;
+        // struct Item* aItem, *bItem;
+        // struct vehicle* aCar,*bCar;
+        //  for(int i = 0; i < aRegion->hCells; i++){       
+        //     for(int j = 0; j<aRegion->vCells; j++) {
+        //         aCell = aRegion->mesh + i*aRegion->vCells + j;
+        //         aItem = aCell->cars.head;
+
+        //     while (aItem != NULL){
+        //         aCar = (struct vehicle*)aItem->datap;
+                
+        //         bItem = (struct Item*)aCar->neighbours.head;//遍历当前transmitter的邻居节点
+        //         while (bItem != NULL) {
+        //             bCar = (struct vehicle*)bItem->datap;
+        //             if(slot==14 && aCar->id == 129 && bCar->id == 135) printf("Current bCar%d\n",bCar->id);
+        //             bItem = bItem->next;
+        //         }
+        //         aItem = aItem->next;
+        //     }
+        //     }
+        //  }
+
 
