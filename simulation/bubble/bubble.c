@@ -64,11 +64,8 @@ int main(int argc, char *argv[]) {
         //printf("Handling Tx and Rx..\n");
         //handle the transmitter at each slot
         handle_transmitter(aRegion, slot);
-        // //handle the receiver at each slot
-        //handle_receiver(aRegion, &AllCollisions, slot);
-        
-        //Log Collisions
-        //log_collisions(aRegion,&AllCollisions);
+        //handle the receiver at each slot
+        handle_receiver(aRegion, slot);
     }  
         
     return 0;

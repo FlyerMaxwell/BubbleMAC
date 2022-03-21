@@ -375,7 +375,7 @@ void log_packet(struct packet * aPkt, int slot){
     
     Collisions_output = fopen(output_collisions_path,"a");
     
-    fprintf(Collisions_output,"slot: %d, condition: %d\n",slot, aPkt->condition);
+    fprintf(Collisions_output,"No: %d, slot: %d, condition: %d\n", cnt_pkt++, slot, aPkt->condition);
     
     // src
     fprintf(Collisions_output,"src id: %d\n",aPkt->srcVehicle->id);
