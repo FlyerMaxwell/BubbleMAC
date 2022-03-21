@@ -19,7 +19,6 @@ int main(int argc, char *argv[]) {
     srand((unsigned int)time(0));
     FILE *fsource;
     struct Region *aRegion = NULL;
-    struct Duallist AllCollisions;
     srand(0);
 
     //默认参数
@@ -64,13 +63,14 @@ int main(int argc, char *argv[]) {
 
         //printf("Handling Tx and Rx..\n");
         //handle the transmitter at each slot
-        handle_transmitter(aRegion, &AllCollisions, slot);
+        handle_transmitter(aRegion, slot);
         // //handle the receiver at each slot
         //handle_receiver(aRegion, &AllCollisions, slot);
         
+        //Log Collisions
+        //log_collisions(aRegion,&AllCollisions);
     }  
-        // // Log collisions. 如果一次性写入文件太大，则放进循环多次写入;或直接写入文件
-        // log_collisions(aRegion,&AllCollisions);
+        
     return 0;
 }
 

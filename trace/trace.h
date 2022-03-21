@@ -244,13 +244,14 @@ typedef struct packet{
   int *slot_resource_oneHop_snapShot;
 }Packet;
 
-typedef struct collision{
+typedef struct collision{//发生碰撞的时候记录：碰撞类型，slot，两个车及其onehop twohop的使用情况
   int type; //1:tx & tx   2:access_collison 3. merge_collison
   int slot;
   struct vehicle *src, *dst;
   int *src_oneHop;
   int *dst_oneHop;
-  int *two_oneHop;
+  int *src_twoHop;
+  int *dst_twoHop;
   // int *two_oneHop;
 }Collision;
 

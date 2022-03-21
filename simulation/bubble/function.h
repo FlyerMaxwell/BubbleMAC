@@ -20,13 +20,14 @@ int init_simulation(struct Region* region);
 void clearPackets(struct Region* region);
 void update_cars(struct Region *region);
 void handle_neighbours(struct Region *region);
-void handle_transmitter(struct Region* region, struct Duallist *Collisions, int slot);
-void handle_receiver(struct Region* region, struct Duallist* Collisions, int slot);
+void handle_transmitter(struct Region* region, int slot);
+void handle_receiver(struct Region* region, int slot);
 
 double distance_between_vehicle(const struct vehicle* aCar, const struct vehicle* bCar);
 struct packet * generate_packet(struct vehicle *aCar, int slot);
 struct collision* generate_collision(struct vehicle *aCar, struct vehicle *bCar,  int type, int slot);
-void log_collisions(struct Region* region, struct Duallist* Collisions);
+void log_collision(struct collision* coli);
+void log_packet(struct packet * aPkt, int slot);
 bool IsFront(struct vehicle *aCar, struct vehicle *tCar);
 void insertFrontRear(struct vehicle *aCar, struct packet *pkt);
 void bubble_mac_protocol(struct Region* aRegion);
