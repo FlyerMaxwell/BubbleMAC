@@ -162,7 +162,7 @@ struct neighbour_car
 	int index;  
 	int cell_x;
 	int cell_y;
-	int car_id;
+	char car_id[20];
 	double v;
 	double dis;
 	double angle;
