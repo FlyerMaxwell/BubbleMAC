@@ -58,6 +58,7 @@
 #include "common.h"
 #include "geometry.h"
 #include "color.h"
+#include <string>
 
 #define TAXI_MAX_SPEED 120
 #define BUS_MAX_SPEED 80
@@ -178,62 +179,102 @@ struct neighbour_car
 };
 
 
+typedef struct simuInfo{
+  
+};
+
+
+
 typedef struct vehicle
 {
-  int id;               // id of the car
   int handled;                  //  to indicate whether the car has been updated during this time
-  double position, positionNew;	// distance from the head of road before update  
-  double v, vnext;		// the velocity of the vehicle
-  double vmax;		// the max velocity of the vehicle
-  double a;		// the accelration of the vehicle, regard as constant
-  double b;		// the decelration of the vehicle, regard as constant
+  
+  //basic info
+  char id[20];// id of the car
+  char type[10]; //model of the car
+
+  //dynamic info
   double x;
   double y;
-  struct Lane *belongLane;
-  struct Path *pathInfo;
-  struct Item *currentRoadItem;
-
-  //varaibles fpr bubble MAC
-  int belongLaneID;
-  int slot_occupied;  //
-  int slot_condition; //0 for no slot occupied, 1 for accessing slots and 2 for occupied already.
-  int isExpansion;
-  int car_role;
-  int radius_flag;
-  int isQueueing;
-  double commRadius;
-  double dir_x, dir_y; //车辆的方向矢量(dir_x, dir_y)。可调用IsFront(struct vehicle *aCar, struct vehicle *tCar)判断车辆间位置
+  double angle;
+  double speed;
+  double pos;
+  char lane[10];
+  double slope;
+  double flow;
+  double speed2;
   
+  //slot info
   int* slot_oneHop;
   int* slot_twoHop;
+  
+  //Packets Received 
   struct Duallist packets;
+  //Neighbors to acc
   struct Duallist neighbours;
-  struct Duallist frontV, rearV; //store the front neighbors and rear neighbors according to the received packets.目前只保存距离最近的前一个车和后一个车，可以扩展到n个。
+  //info about frontV and rearV
+  struct Duallist frontV, rearV;
 
-
-  //variables for mmwave simulation
-  double x1;
-  double y1;
-  struct Cell *belongCell;
-  // struct Duallist neighbours;
-  int choice_num;
-  int match_id;
-  int role; //-1 init, 0 listen, 1 scan, 2 communicating
-  int communicate_time;
-  
   struct Duallist history_neigh;
-  struct Duallist known_neigh;
-  struct Duallist choose_neigh;   //chosen by who
-  struct Duallist real_neigh;
-  int choose_car_id;
-  struct Item *choose_car_Item;  //temporary link
-  struct Item *choice_car;  //choose which car in one round
-
-  int weight;
   
-  int scan_time;
-  int communicated_num;
 }Vehicle;
+
+// typedef struct vehicle
+// {
+//   char id[20];// id of the car
+//   int handled;                  //  to indicate whether the car has been updated during this time
+//   double position, positionNew;	// distance from the head of road before update  
+//   double v, vnext;		// the velocity of the vehicle
+//   double vmax;		// the max velocity of the vehicle
+//   double a;		// the accelration of the vehicle, regard as constant
+//   double b;		// the decelration of the vehicle, regard as constant
+//   double x;
+//   double y;
+//   struct Lane *belongLane;
+//   struct Path *pathInfo;
+//   struct Item *currentRoadItem;
+
+//   //varaibles fpr bubble MAC
+//   int belongLaneID;
+//   int slot_occupied;  //
+//   int slot_condition; //0 for no slot occupied, 1 for accessing slots and 2 for occupied already.
+//   int isExpansion;
+//   int car_role;
+//   int radius_flag;
+//   int isQueueing;
+//   double commRadius;
+//   double dir_x, dir_y; //车辆的方向矢量(dir_x, dir_y)。可调用IsFront(struct vehicle *aCar, struct vehicle *tCar)判断车辆间位置
+  
+//   int* slot_oneHop;
+//   int* slot_twoHop;
+//   struct Duallist packets;
+//   struct Duallist neighbours;
+//   struct Duallist frontV, rearV; //store the front neighbors and rear neighbors according to the received packets.目前只保存距离最近的前一个车和后一个车，可以扩展到n个。
+
+
+//   //variables for mmwave simulation
+//   double x1;
+//   double y1;
+//   struct Cell *belongCell;
+//   // struct Duallist neighbours;
+//   int choice_num;
+//   int match_id;
+//   int role; //-1 init, 0 listen, 1 scan, 2 communicating
+//   int communicate_time;
+  
+//   struct Duallist history_neigh;
+//   struct Duallist known_neigh;
+//   struct Duallist choose_neigh;   //chosen by who
+//   struct Duallist real_neigh;
+//   int choose_car_id;
+//   struct Item *choose_car_Item;  //temporary link
+//   struct Item *choice_car;  //choose which car in one round
+
+//   int weight;
+  
+//   int scan_time;
+//   int communicated_num;
+// }Vehicle;
 
 typedef struct packet{
   int slot;

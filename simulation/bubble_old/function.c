@@ -51,9 +51,7 @@ void clearPackets(struct Region* region){
 }
 
 
-
-
-void update_cars() 		//new generate_car modified by hfc
+void update_cars(struct Region *region) 		//new generate_car modified by hfc
 {
 	double xmin,ymin,xmax,ymax, x, y;
 	int flag, i, j, k, l;
@@ -104,7 +102,7 @@ void update_cars() 		//new generate_car modified by hfc
 		duallist_init(&new_car->frontV);
 		duallist_init(&new_car->rearV);
 
-        //找到new_Car对应的aCell---------即aCell
+        //找到new_Car对应的aCell
 		flag = false;		
 		for(i = 0; i<region->hCells; i++){       
 			for(j = 0; j<region->vCells;j++) {
@@ -146,7 +144,6 @@ void update_cars() 		//new generate_car modified by hfc
 			duallist_add_to_tail(&aCell->cars, bCar);
 			free(new_car);
 		}
-        //若之前不存在，如果处于要更新车辆的时刻，则更新车辆，否则不更新车辆
 		if (flag == false && slot % (SlotPerFrame*nFrameSta) == 0) duallist_add_to_tail(&(aCell->cars), new_car);
 		if (flag == false && slot % (SlotPerFrame*nFrameSta) != 0) free(new_car);
 	}
@@ -161,7 +158,7 @@ void update_cars() 		//new generate_car modified by hfc
                 tItem = aItem;
 				aItem = aItem->next;
                 if (aCar->handled == 0) {
-                    bItem = aCar->history_neigh.head;//上一帧的neighbor信息；要在这些neighbor中去掉该车的信息
+                    bItem = aCar->history_neigh.head;
                     while (bItem !=NULL) {
                         bNeigh = (struct neighbour_car*)bItem->datap;
                         bCar = (struct vehicle*)bNeigh->carItem->datap;
@@ -267,7 +264,8 @@ struct packet * generate_packet(struct vehicle *aCar, struct vehicle *bCar, int 
     pkt->srcVehicle = aCar;
     pkt->dstVehicle = bCar;
     pkt->isQueueing = aCar->isQueueing;
-      for(int i = 0; i < SlotPerFrame; i++){
+    pkt->slot_resource_oneHop_snapShot = (int*)malloc(sizeof(int)*SlotPerFrame);
+    for(int i = 0; i < SlotPerFrame; i++){
         pkt->slot_resource_oneHop_snapShot[i] = aCar->slot_oneHop[i];
     }
     return pkt;

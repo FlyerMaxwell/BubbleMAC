@@ -13,6 +13,7 @@
 #define bool int
 // using namespace std;
 /***********************bubble parameters**********************/
+extern int slot;
 extern double BRAKE_COE;
 extern int UpLocSlot;
 extern int SlotPerFrame;

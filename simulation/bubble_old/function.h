@@ -18,7 +18,7 @@
 //---bubble updated by YX----//
 int init_simulation(struct Region* region);
 void clearPackets(struct Region* region);
-void update_cars();
+void update_cars(struct Region *region);
 void handle_neighbours(struct Region *region);
 void handle_transmitter(struct Region* region, int slot);
 void handle_receiver(struct Region* region, int slot);

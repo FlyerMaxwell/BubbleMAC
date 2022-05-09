@@ -11,64 +11,190 @@
 #include "function.h"
 #include "trace.h"
 
-// using namespace std;
+int init_simulation(struct Duallist *ALL_Vehicles){
+	struct Item *aItem;
+	struct vehicle *aCar;
+
+	
+	aItem = ALL_Vehicles->head;
+	while (aItem != NULL){
+		aCar = (struct vehicle*)aItem->datap;
+//---需要初始化的内容---//
+	    aCar->handled = 0;	
+//---需要初始化的内容---//
+        aItem = aItem->next;	
+	}
+
+	return 0;
+}
+
+
+void updateLocation(struct Duallist *ALL_Vehicles, int slot){
+    FILE *fin = NULL;
+    int flag;
+    int timestep;
+    struct Item *aItem, *bItem, *tItem,*nItem;
+    struct neighbour_car* tNeigh, *nNeigh, *bNeigh;
+    struct vehicle *aCar, *bCar;
+    int car_count = 0;
+    
+    printf("Loading vehilces...\n");
+
+    sprintf(fin, "/media/lion/Elements SE/Maxwell/BubbleMAC/SumoSimu/MyCross/transformed/carposition_%d.txt", slot);
+    fin = fopen(fin, "r");
+
+    //读取文件，添加车辆
+    while(fscanf(fin, "%d", &timestep)!=-1){
+        struct vehicle *new_car;
+		new_car=(struct vehicle*)malloc(sizeof(struct vehicle));
+        
+        //读取一行数据到new_Car中
+        fscanf(fin, "%s", new_car->id);
+        fscanf(fin, "%lf", &new_car->x);
+        fscanf(fin, "%lf", &new_car->y);
+        fscanf(fin, "%lf", &new_car->angle);
+        fscanf(fin, "%s", new_car->type);
+        fscanf(fin, "%lf", &new_car->speed);
+        fscanf(fin, "%lf", &new_car->pos);
+        fscanf(fin, "%s", new_car->lane);
+        fscanf(fin, "%lf", &new_car->slope);
+        fscanf(fin, "%lf", &new_car->flow);
+        fscanf(fin, "%lf", &new_car->speed2);
+
+        new_car->slot_oneHop = (int*)malloc(sizeof(int)*SlotPerFrame);
+		new_car->slot_twoHop = (int*)malloc(sizeof(int)*SlotPerFrame);
+
+        for(int ii = 0; ii < SlotPerFrame; ii++){
+            new_car->slot_oneHop[ii] = -1;
+            new_car->slot_twoHop[ii] = -1;
+        }
+
+        new_car->handled = 2;//新车
+
+        duallist_init(&new_car->packets);
+		duallist_init(&new_car->neighbours);
+		duallist_init(&new_car->frontV);
+		duallist_init(&new_car->rearV);
+
+
+        //查找new_Car是否已经存在， 若存在，flag=true；若不存在，则flag = false;遍历一次ALL_Vehicles双链表，看是否已经存在（id是否相等），若相等则flag=true；若不相等，则flag=false
+		flag = false;
+        bItem = (struct Item*)ALL_Vehicles->head;
+        while(bItem != NULL){
+            bCar = (struct vehicle*)bItem->datap;
+            if (!strcmp(bCar->id, new_car->id)) {flag = true;break;}
+            bItem = bItem->next;
+        }
+
+        //若之前已存在，则更新其运动学信息
+        if(flag == true){
+            bCar->x = new_car->x;
+            bCar->y = new_car->y;
+			bCar->speed = new_car->speed;
+            bCar->handled = 1;//已有的车辆且处理
+            duallist_pick_item(ALL_Vehicles, bItem);//这样做也没错，只是没必要。。先不改了
+			duallist_add_to_tail(ALL_Vehicles, bCar);//添加更新后的节点
+			free(new_car);
+        }
+        //若之前不存在，如果处于要更新车辆的时刻，则更新车辆，否则不更新车辆
+        // if (flag == false && slot % (SlotPerFrame*nFrameSta) == 0) duallist_add_to_tail(ALL_Vehicles, new_car);
+		// if (flag == false && slot % (SlotPerFrame*nFrameSta) != 0) free(new_car);
+        if (flag == false)
+            duallist_add_to_tail(ALL_Vehicles, new_car);
+    }
+    
+    
+    //处理那些消失掉的车，目前的版本是，在每个updateLoc都清除掉那些消失的车
+    aItem = ALL_Vehicles->head;
+    while(aItem != NULL){
+        aCar = (struct vehicle*)aItem->datap;
+        tItem = aItem;
+		aItem = aItem->next;
+        if (aCar->handled == 0) {
+            bItem = aCar->history_neigh.head;
+            while (bItem !=NULL) {
+                bNeigh = (struct neighbour_car*)bItem->datap;
+                bCar = (struct vehicle*)bNeigh->carItem->datap;
+                nItem = bCar->history_neigh.head;
+                while (nItem !=NULL) {
+                    nNeigh = (struct neighbour_car*)nItem->datap;
+                    if (strcmp(nNeigh->car_id ,aCar->id)) {duallist_pick_item(&bCar->history_neigh, nItem); break;}
+                    nItem = nItem->next;
+                    }
+                    bItem = bItem->next;
+            }
+            duallist_pick_item(ALL_Vehicles, tItem); 
+            free(aCar);
+        }
+        else car_count++;
+    }
+
+    fclose(fin);
+
+    printf("\ntotal car number in this slot: %d\n", car_count);
+    printf("Vehicles have been loaded!\n");
+    return;
+};
+
+
+//handle neighbors： 处理邻居，将所有车辆的所在的九宫格内的车挂载到其潜在的neighbors中,即每个车辆的neighbors就是当前九宫格内的邻居。暴力，两层循环。这里暴力是为了后面每次遍历的时候能少遍历一点
+void handle_neighbours(struct Duallist *ALL_Vehicles){
+    struct Cell *aCell, *nCell;
+    struct Item *aItem, *nItem;
+    struct vehicle* aCar, *nCar;
+
+    aItem =ALL_Vehicles-> head;
+    while(aItem != NULL){
+        aCar = (struct vehicle*)aItem->datap;
+        duallist_destroy(&(aCar->neighbours), NULL);//先把之前的清空掉
+        nItem = ALL_Vehicles-> head;
+        while(nItem != NULL){
+            nCar = (struct vehicle*)nItem->datap;
+            //id不相等且处于两千米以内，则将其加入到neighbors
+            if(strcmp(nCar->id, aCar->id)!=0 && distance_between_vehicle(aCar,nCar) < 2000){
+                duallist_add_to_tail(&(aCar->neighbours), nCar);//将id不同的车加入到neighbor list。
+            }
+            nItem = nItem->next;
+        }
+    }
+};
+
 
 
 // argv[0]: name of program, argv[1]: choose a map, argv[2]: define para or not
 int main(int argc, char *argv[]) {
-    srand((unsigned int)time(0));
-    FILE *fsource;
-    struct Region *aRegion = NULL;
-    srand(0);
+    srand(0);       //固定随机数种子，获取稳定的结果
 
-    //默认参数
-    int seq_num = 3;//traffic_density是指单向车道上的车辆密度，双向车道上车道数*2
-    char usedMap[20]="three_lane.map"; 
-    
-    // if (argc == 1) {
-	//     printf("Error: There is no map. Please define a map as:  ./%s XXX.map\n",argv[0]);
-	//     exit(1);
-    // }else if(argc == 2){
-    //     strcpy(usedMap,argv[1]);
-    //     printf("Input traffic data sequence number (seq_num) : \n");
-    //     scanf("%d", &seq_num);     //每段数据长度为10s，每5ms记录一次，合计2000条
-    //     printf("Input traffic density (traffic density): \n");
-    //     scanf("%d", &traffic_density);
-    // }
+    int slot_start = 0;
+    int slot_end = 100;
+    int slot_step = 1;
 
-    // Load the map
-    printf("Loading the map...\n");
-    fsource=fopen(usedMap, "rb");
-    aRegion = region_load_func(fsource, NULL, -1);
-    fclose(fsource);
-    printf("The map %s has been loaded.\n",usedMap);
-    printf("%lf\n",aRegion->cellSize);//cellsize错了，剑钢说暂不影响,three_lane.map的region尺寸为1 Cell*7 Cell。其中每个Cell为150m *150m
+    struct Duallist ALL_Vehicles;// 每个slot下的全部车辆，于一个链表中中
 
     // Simulation in sequence style.
-	for (slot = 0; slot < 4000; slot++){//carposition从4000-5999，合计2000个文件，10秒
-        printf("%d\n",slot);
-        //Update vehicles' location.
-        // printf("the slot is %d\n", slot);
-        if(slot % UpLocSlot == 0) { //每UpLocSlot更新位置,每SlotPerFrame*nFrameSta添加新车
-            init_simulation(aRegion);
-            update_cars(aRegion);
-            handle_neighbours(aRegion);
-            printf("The simulator has been init, the neighbors have been handle, Current slot = %d\n", slot);
+    for(int slot = slot_start; slot < slot_end; slot += slot_step){
+        printf("slot = %d\n",slot);
+        
+        // init_simulation();          //在每个时刻需要初始化的东西
+        
+        if(slot % UpLocSlot == 0) {     //每UpLocSlot更新位置,每SlotPerFrame*nFrameSta添加新车(这没问题，防止丢车)
+            init_simulation(&ALL_Vehicles);
+            updateLocation(&ALL_Vehicles, slot);
+            handle_neighbours(&ALL_Vehicles);
+            printf("The location of vehicles has been updated, Current slot = %d\n", slot);
         }
 
         // Determine the slot and comm. range at the beginning of each frame
-        if(slot % SlotPerFrame == 0){
-            bubble_mac_protocol(aRegion);
-            clearPackets(aRegion);
-        }
-
-        //printf("Handling Tx and Rx..\n");
+        // if(slot % SlotPerFrame == 0){
+        //     bubble_mac_protocol();
+        //     clearPackets();
+        // }
         //handle the transmitter at each slot
-        handle_transmitter(aRegion, slot);
+        //handle_transmitter(aRegion, slot);
         //handle the receiver at each slot
-        handle_receiver(aRegion, slot);
+        //handle_receiver(aRegion, slot);
     }
-    printf("Car/km:%d\n Total Cars: %d\n Total Transmited Packets: %d\n Total Received Packet: %d\n Total Collisions: %d\n ", traffic_density,Car_Number,cnt_pkt, cnt_received, cnt_coli);
+    // printf("Car/km:%d\n Total Cars: %d\n Total Transmited Packets: %d\n Total Received Packet: %d\n Total Collisions: %d\n ", traffic_density,Car_Number,cnt_pkt, cnt_received, cnt_coli);
         
     return 0;
 }
