@@ -205,8 +205,14 @@ typedef struct vehicle
   double speed2;
   
   //slot info
+  int slot_condition;
+  int isQueueing;
+  int slot_occupied;
   int* slot_oneHop;
   int* slot_twoHop;
+
+  //Commrange
+  double commRadius;
   
   //Packets Received 
   struct Duallist packets;

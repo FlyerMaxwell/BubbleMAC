@@ -136,6 +136,117 @@ double distance_between_vehicle(const struct vehicle* aCar, const struct vehicle
     return sqrt((aCar->x - bCar->x)*(aCar->x - bCar->x) + (aCar->y - bCar->y)*(aCar->y - bCar->y));
 }
 
+
+void handle_transmitter(struct Duallist *ALL_Vehicles, int slot){
+    struct Item *aItem, *bItem;
+    struct vehicle *aCar, *bCar;
+    aItem = ALL_Vehicles->head;
+    while(aItem != NULL){
+        aCar = (struct vehicle*)aItem->datap;
+        
+        //若车辆占用时槽并非当前时槽，则跳过
+        if(aCar->slot_occupied != slot%SlotPerFrame){
+            aItem = aItem->next;
+            continue;
+        }
+
+        printf("Current Slot: %d, Current Transmitter: %d\n", slot, aCar->id);//对当前时槽正好发射的节点进行操作
+
+        bItem = (struct Item*)aCar->neighbours.head;//遍历当前transmitter的邻居节点
+        while(bItem != NULL){
+            bCar = (struct vehicle*)bItem->datap;
+            printf("bCar Id: %d\n", bCar->id);
+            double distanceAB = distance_between_vehicle(aCar, bCar);
+            if(aCar->commRadius < distanceAB){
+                //printf("%d 's Comm Range is: %lf, OutRange neighbor is %d, distance is %lf\n",aCar->id,  aCar->commRadius, bCar->id,distanceAB);
+                bItem = bItem->next;
+            }else{
+                //printf("%d 's Comm Range is: %lf, InRange neighbor is %d, distance is %lf\n", aCar->id,aCar->commRadius, bCar->id, distanceAB);
+                if(bCar->slot_occupied == aCar->slot_occupied){//若此时目标车辆也在发送，则产生collision
+                    struct collision* coli =  generate_collision(aCar,bCar,0,slot);
+                    log_collision(coli);
+                    bItem = bItem->next;
+                }else{
+                    struct packet* pkt = generate_packet(aCar,bCar,slot);
+                    duallist_add_to_tail(&(bCar->packets), pkt);
+                    printf("A packet! cnt_pkt: %d, src: %d, dst:%d ,slot:%d \n", cnt_pkt, aCar->id, bCar->id,slot);
+                    log_packet(pkt,slot);
+                    bItem = bItem->next;
+                }
+            }
+        }
+        aItem =aItem->next;
+    } 
+}
+
+void handle_receiver(struct Duallist *ALL_Vehicles, int slot){
+    struct Item *aItem, *bItem;
+    struct vehicle *aCar;
+
+    aItem = ALL_Vehicles->head;
+    while(aItem != NULL){
+        aCar = (struct vehicle*)aItem->datap;
+                
+        if(aCar->slot_occupied == slot) {
+            aItem = aItem->next;
+            // printf("There is a transmitter!\n");
+            continue; //忽略掉transmitter
+        }
+
+        //printf("Current Slot: %d, Current Receiver: %d\n", slot, aCar->id);//对当前时槽正好发射的节点进行操作
+                //到目前时间一直都没有收到包
+        if(aCar->packets.nItems == 0){
+            aItem = aItem->next;
+            // printf("There is no packets!\n");
+            continue; //忽略掉transmitter
+        }
+
+        //数一下当前slot收到了多少个包---->packet只有当一个完整的frame才刷新
+        int cnt_cur_pkt = 0;
+        bItem =  (struct Item*)aCar->packets.head;
+        while(bItem != NULL){
+            struct packet* pkt= (struct packet*)bItem->datap;
+            if(pkt->slot == slot) cnt_cur_pkt++;
+                bItem = bItem->next;
+        }  // 若当前slot收到0个包
+        if(cnt_cur_pkt == 0){
+            aCar->slot_oneHop[slot] = -1;
+            aCar->slot_twoHop[slot] = -1;//??这个要更新吗??
+        }else if(cnt_cur_pkt == 1){//只收到一个pkt，则正常收包，update OHN 和THN, frontV, rearV 有问题
+            cnt_received++;
+            struct packet* pkt= (struct packet*)duallist_pick_tail(&(aCar->packets));
+            int index = pkt->slot, value = pkt->srcVehicle->id;
+            aCar->slot_oneHop[index] = value;//更新OHN时槽使用情况
+            for(int i = 0 ; i < SlotPerFrame; i++){
+                aCar->slot_twoHop[i] = pkt->slot_resource_oneHop_snapShot[i];//将pkt中携带的OHN信息更新到THN中，不考虑覆盖问题？？？？
+            }
+            // 将pkt指向的车更新到frontV, rearV
+            insertFrontRear(aCar, pkt);
+        }else{//有两个或以上的pkt，产生Collision
+            bItem = (struct Item*)aCar->packets.head;
+            while(bItem!=NULL){
+                struct packet* pkt= (struct packet*)bItem->datap;
+                if(pkt->slot == slot){
+                    if(pkt->srcVehicle->slot_condition == 1){
+                        //printf("hello!!!!_____________________________________________!!!!!!\n");
+                        //printf("%d %d\n",aCar->id,pkt->srcVehicle->id);
+                        struct collision* coli = generate_collision(aCar,pkt->srcVehicle,1,slot);
+                        log_collision(coli);
+                    }else if(pkt->srcVehicle->slot_condition == 2){
+                        //printf("hello!!!!_____________________________________________~~~~~~~\n");
+                        struct collision* coli = generate_collision(aCar,pkt->srcVehicle,2,slot);
+                        log_collision(coli);
+                    }
+                    printf("hello!!!!_____________________________________________\n");
+                }
+                bItem = bItem->next;  
+            }
+        }
+        printf("hello\n");
+        aItem = aItem->next;
+    }
+}
+
 // void clearPackets(struct Region* region){
 //     struct Item *aItem;
 // 	struct Cell *aCell;
@@ -163,255 +274,122 @@ double distance_between_vehicle(const struct vehicle* aCar, const struct vehicle
 
 
 
-// //生成Collision， 记录type, slot, 两个车及两车对应的当前slot使用情况
-// struct collision* generate_collision(struct vehicle *aCar, struct vehicle *bCar,  int type, int slot){
-//     struct collision * coli;
-//     coli = (struct collision*)malloc(sizeof(struct collision));
-//     coli->type = type;
-//     coli->slot = slot;
-//     coli->src = aCar;
-//     coli->dst = bCar;
+//生成Collision， 记录type, slot, 两个车及两车对应的当前slot使用情况
+struct collision* generate_collision(struct vehicle *aCar, struct vehicle *bCar,  int type, int slot){
+    struct collision * coli;
+    coli = (struct collision*)malloc(sizeof(struct collision));
+    coli->type = type;
+    coli->slot = slot;
+    coli->src = aCar;
+    coli->dst = bCar;
 
-//     coli->src_oneHop = (int*)malloc(sizeof(int)*SlotPerFrame);
-//     coli->src_twoHop = (int*)malloc(sizeof(int)*SlotPerFrame);
-//     coli->dst_oneHop = (int*)malloc(sizeof(int)*SlotPerFrame);
-//     coli->dst_twoHop = (int*)malloc(sizeof(int)*SlotPerFrame);
+    coli->src_oneHop = (int*)malloc(sizeof(int)*SlotPerFrame);
+    coli->src_twoHop = (int*)malloc(sizeof(int)*SlotPerFrame);
+    coli->dst_oneHop = (int*)malloc(sizeof(int)*SlotPerFrame);
+    coli->dst_twoHop = (int*)malloc(sizeof(int)*SlotPerFrame);
     
-//     for(int i = 0; i < SlotPerFrame; i++){
-//         coli->src_oneHop[i] = aCar->slot_oneHop[i];
-//         coli->src_twoHop[i] = aCar->slot_twoHop[i];
-//         coli->dst_oneHop[i] = bCar->slot_oneHop[i];
-//         coli->dst_twoHop[i] = bCar->slot_twoHop[i];
-//     }
+    for(int i = 0; i < SlotPerFrame; i++){
+        coli->src_oneHop[i] = aCar->slot_oneHop[i];
+        coli->src_twoHop[i] = aCar->slot_twoHop[i];
+        coli->dst_oneHop[i] = bCar->slot_oneHop[i];
+        coli->dst_twoHop[i] = bCar->slot_twoHop[i];
+    }
 
-//     return coli;
-// }
+    return coli;
+}
 
-// //generate_packet
-// struct packet * generate_packet(struct vehicle *aCar, struct vehicle *bCar, int slot){
-//     struct packet* pkt;
-//     pkt = (struct packet*)malloc(sizeof(struct packet));
-//     pkt->slot = slot;
-//     pkt->condition = 0;//还没有发生碰撞
-//     pkt->srcVehicle = aCar;
-//     pkt->dstVehicle = bCar;
-//     pkt->isQueueing = aCar->isQueueing;
-//       for(int i = 0; i < SlotPerFrame; i++){
-//         pkt->slot_resource_oneHop_snapShot[i] = aCar->slot_oneHop[i];
-//     }
-//     return pkt;
-// }
+//generate_packet
+struct packet * generate_packet(struct vehicle *aCar, struct vehicle *bCar, int slot){
+    struct packet* pkt;
+    pkt = (struct packet*)malloc(sizeof(struct packet));
+    pkt->slot = slot;
+    pkt->condition = 0;//还没有发生碰撞
+    pkt->srcVehicle = aCar;
+    pkt->dstVehicle = bCar;
+    pkt->isQueueing = aCar->isQueueing;
+      for(int i = 0; i < SlotPerFrame; i++){
+        pkt->slot_resource_oneHop_snapShot[i] = aCar->slot_oneHop[i];
+    }
+    return pkt;
+}
 
 
-// void log_packet(struct packet * aPkt, int slot){
-//     char output_collisions_path[100];
-//     FILE * Collisions_output;
-//     sprintf(output_collisions_path, "./simulation_result/bubble_packet_%d_%d.txt", SlotPerFrame, traffic_density);
-//     //printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!%d\n",traffic_density);
-//     Collisions_output = fopen(output_collisions_path,"a");
+void log_packet(struct packet * aPkt, int slot){
+    char output_collisions_path[100];
+    FILE * Collisions_output;
+    sprintf(output_collisions_path, "./simulation_result/bubble_packet_%d_%d.txt", SlotPerFrame, traffic_density);
+    //printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!%d\n",traffic_density);
+    Collisions_output = fopen(output_collisions_path,"a");
     
-//     fprintf(Collisions_output,"No: %d, slot: %d, condition: %d\n", cnt_pkt++, slot, aPkt->condition);
+    fprintf(Collisions_output,"No: %d, slot: %d, condition: %d\n", cnt_pkt++, slot, aPkt->condition);
     
-//     // src
-//     fprintf(Collisions_output,"src id: %d\n",aPkt->srcVehicle->id);
-//     // for(int i = 0; i< SlotPerFrame; i++){
-//     //     fprintf(Collisions_output,"%d ",aPkt->srcVehicle->slot_oneHop[i]);
-//     // }
-//     // fprintf(Collisions_output,"\n");
-//     // for(int i = 0; i< SlotPerFrame; i++){
-//     //     fprintf(Collisions_output,"%d ",aPkt->srcVehicle->slot_twoHop[i]);
-//     // }
-//     // fprintf(Collisions_output,"\n");
+    // src
+    fprintf(Collisions_output,"src id: %d\n",aPkt->srcVehicle->id);
+    // for(int i = 0; i< SlotPerFrame; i++){
+    //     fprintf(Collisions_output,"%d ",aPkt->srcVehicle->slot_oneHop[i]);
+    // }
+    // fprintf(Collisions_output,"\n");
+    // for(int i = 0; i< SlotPerFrame; i++){
+    //     fprintf(Collisions_output,"%d ",aPkt->srcVehicle->slot_twoHop[i]);
+    // }
+    // fprintf(Collisions_output,"\n");
 
-//     //dst
-//     fprintf(Collisions_output,"dst id: %d\n",aPkt->dstVehicle->id);
-//     // for(int i = 0; i< SlotPerFrame; i++){
-//     //     fprintf(Collisions_output,"%d ",aPkt->dstVehicle->slot_oneHop[i]);
-//     // }
-//     // fprintf(Collisions_output,"\n");
-//     // for(int i = 0; i< SlotPerFrame; i++){
-//     //     fprintf(Collisions_output,"%d ",aPkt->dstVehicle->slot_twoHop[i]);
-//     // }
-//     fprintf(Collisions_output,"\n");
+    //dst
+    fprintf(Collisions_output,"dst id: %d\n",aPkt->dstVehicle->id);
+    // for(int i = 0; i< SlotPerFrame; i++){
+    //     fprintf(Collisions_output,"%d ",aPkt->dstVehicle->slot_oneHop[i]);
+    // }
+    // fprintf(Collisions_output,"\n");
+    // for(int i = 0; i< SlotPerFrame; i++){
+    //     fprintf(Collisions_output,"%d ",aPkt->dstVehicle->slot_twoHop[i]);
+    // }
+    fprintf(Collisions_output,"\n");
     
-//     fclose(Collisions_output);
-// }
+    fclose(Collisions_output);
+}
 
 
-// void log_collision(struct collision* coli){
-//     char output_collisions_path[100];
-//     FILE * Collisions_output;
-//     sprintf(output_collisions_path, "./simulation_result/bubble_collision_%d_%d.txt", SlotPerFrame, traffic_density);
+void log_collision(struct collision* coli){
+    char output_collisions_path[100];
+    FILE * Collisions_output;
+    sprintf(output_collisions_path, "./simulation_result/bubble_collision_%d_%d.txt", SlotPerFrame, traffic_density);
     
-//     Collisions_output = fopen(output_collisions_path,"a");
+    Collisions_output = fopen(output_collisions_path,"a");
     
-//     fprintf(Collisions_output, "No:%d, Type: %d, Slot: %d, Distance:%lf\n", cnt_coli++,coli->type, coli->slot, distance_between_vehicle(coli->src, coli->dst));
+    fprintf(Collisions_output, "No:%d, Type: %d, Slot: %d, Distance:%lf\n", cnt_coli++,coli->type, coli->slot, distance_between_vehicle(coli->src, coli->dst));
         
-//     //src
-//     fprintf(Collisions_output,"src ID: %d, x: %lf, y: %lf, comm.R: %lf \n",coli->src->id, coli->src->x, coli->src->y, coli->src->commRadius);
-//     // for(int i = 0; i< SlotPerFrame; i++){
-//     //     fprintf(Collisions_output,"%d ",coli->src_oneHop[i]);
-//     // }
-//     // fprintf(Collisions_output,"\n");
-//     // for(int i = 0; i< SlotPerFrame; i++){
-//     //     fprintf(Collisions_output,"%d ",coli->src_twoHop[i]);
-//     // }
-//     // fprintf(Collisions_output,"\n");
+    //src
+    fprintf(Collisions_output,"src ID: %d, x: %lf, y: %lf, comm.R: %lf \n",coli->src->id, coli->src->x, coli->src->y, coli->src->commRadius);
+    // for(int i = 0; i< SlotPerFrame; i++){
+    //     fprintf(Collisions_output,"%d ",coli->src_oneHop[i]);
+    // }
+    // fprintf(Collisions_output,"\n");
+    // for(int i = 0; i< SlotPerFrame; i++){
+    //     fprintf(Collisions_output,"%d ",coli->src_twoHop[i]);
+    // }
+    // fprintf(Collisions_output,"\n");
 
-//     //dst
-//     fprintf(Collisions_output,"dst ID: %d, x: %lf, y: %lf ,comm.R: %lf \n",coli->dst->id, coli->dst->x, coli->dst->y, coli->dst->commRadius);
-//     // for(int i = 0; i< SlotPerFrame; i++){
-//     //     fprintf(Collisions_output,"%d ",coli->dst_oneHop[i]);
-//     // }
-//     // fprintf(Collisions_output,"\n");
-//     // for(int i = 0; i< SlotPerFrame; i++){
-//     //     fprintf(Collisions_output,"%d ",coli->dst_twoHop[i]);
-//     // }
-//     fprintf(Collisions_output,"\n");
+    //dst
+    fprintf(Collisions_output,"dst ID: %d, x: %lf, y: %lf ,comm.R: %lf \n",coli->dst->id, coli->dst->x, coli->dst->y, coli->dst->commRadius);
+    // for(int i = 0; i< SlotPerFrame; i++){
+    //     fprintf(Collisions_output,"%d ",coli->dst_oneHop[i]);
+    // }
+    // fprintf(Collisions_output,"\n");
+    // for(int i = 0; i< SlotPerFrame; i++){
+    //     fprintf(Collisions_output,"%d ",coli->dst_twoHop[i]);
+    // }
+    fprintf(Collisions_output,"\n");
 
-//     fclose(Collisions_output);
+    fclose(Collisions_output);
     
-//     //释放当前结构体内存
-//     free(coli->src_oneHop);
-//     free(coli->src_twoHop);
-//     free(coli->dst_oneHop);
-//     free(coli->dst_twoHop);
-//     free(coli);
-// }
+    //释放当前结构体内存
+    free(coli->src_oneHop);
+    free(coli->src_twoHop);
+    free(coli->dst_oneHop);
+    free(coli->dst_twoHop);
+    free(coli);
+}
 
-
-// //处理发包过程
-// void handle_transmitter(struct Region* region, int slot){
-//     struct Cell *aCell;
-//     struct Item *aItem, *bItem;
-//     struct vehicle *aCar, *bCar;
-//     struct neighbour_car* bneigh;
-
-//     int cnt_now_car = 0;
-
-//     for(int i = 0; i < region->hCells; i++){       
-//         for(int j = 0; j<region->vCells; j++) {
-//             aCell = region->mesh + i*region->vCells + j;
-//             aItem = aCell->cars.head;
-//             //printf("test0\n");
-
-//             while (aItem != NULL){
-//                 aCar = (struct vehicle*)aItem->datap;
-//                 //printf("slot: %d, Vehicle No: %d, slot_condition: %d, slot_occupied: %d \n",slot, aCar->id,aCar->slot_condition, aCar->slot_occupied);
-
-
-//                 if(aCar->slot_occupied != slot){
-//                     aItem = aItem->next; //忽略掉receiver
-//                     continue;
-//                 }  
-
-//                 printf("Current Slot: %d, Current Transmitter: %d\n", slot, aCar->id);//对当前时槽正好发射的节点进行操作
-
-//                 bItem = (struct Item*)aCar->neighbours.head;//遍历当前transmitter的邻居节点
-//                 while (bItem != NULL) {
-//                     bCar =  (struct vehicle*)bItem->datap;
-//                     printf("bCar Id: %d\n", bCar->id);
-//                     //printf("%d 's neighbor is %d\n", aCar->id, bCar->id);
-//                     double distanceAB = distance_between_vehicle(aCar, bCar);
-//                     if(aCar->commRadius < distanceAB){
-//                         //printf("%d 's Comm Range is: %lf, OutRange neighbor is %d, distance is %lf\n",aCar->id,  aCar->commRadius, bCar->id,distanceAB);
-//                         bItem = bItem->next;
-//                     }else{
-//                         //printf("%d 's Comm Range is: %lf, InRange neighbor is %d, distance is %lf\n", aCar->id,aCar->commRadius, bCar->id, distanceAB);
-//                         if(bCar->slot_occupied == aCar->slot_occupied){//若此时目标车辆也在发送，则产生collision
-//                             struct collision* coli =  generate_collision(aCar,bCar,0,slot);
-//                             log_collision(coli);
-//                             bItem = bItem->next;
-//                         }else{
-//                             struct packet* pkt = generate_packet(aCar,bCar,slot);
-//                             duallist_add_to_tail(&(bCar->packets), pkt);
-//                             printf("A packet! cnt_pkt: %d, src: %d, dst:%d ,slot:%d \n", cnt_pkt, aCar->id, bCar->id,slot);
-//                             log_packet(pkt,slot);
-//                             bItem = bItem->next;
-//                         }                           
-//                     }
-//                 }
-//                 aItem = aItem->next;
-//             }
-//         }
-//     }
-// }
-
-// void handle_receiver(struct Region* region, int slot){
-//     struct Cell *aCell;
-//     struct Item *aItem, *bItem;
-//     struct vehicle *aCar;
-//     struct neighbour_car* bneigh;
-
-//     for(int i = 0; i<region->hCells; i++){       
-//         for(int j = 0; j<region->vCells;j++) {
-//             aCell = region->mesh + i*region->vCells + j;
-//             aItem = aCell->cars.head;
-//             while (aItem != NULL){
-//                 aCar = (struct vehicle*)aItem->datap;
-                
-//                 if(aCar->slot_occupied == slot) {
-//                     aItem = aItem->next;
-//                     // printf("There is a transmitter!\n");
-//                     continue; //忽略掉transmitter
-//                 }
-                
-//                 //printf("Current Slot: %d, Current Receiver: %d\n", slot, aCar->id);//对当前时槽正好发射的节点进行操作
-//                 //到目前时间一直都没有收到包
-//                 if(aCar->packets.nItems == 0){
-//                     aItem = aItem->next;
-//                     // printf("There is no packets!\n");
-//                     continue; //忽略掉transmitter
-//                 }
-                
-//                 //数一下当前slot收到了多少个包---->packet只有当一个完整的frame才刷新
-//                 int cnt_cur_pkt = 0;
-//                 bItem =  (struct Item*)aCar->packets.head;
-//                 while(bItem != NULL){
-//                     struct packet* pkt= (struct packet*)bItem->datap;
-//                     if(pkt->slot == slot) cnt_cur_pkt++;
-//                     bItem = bItem->next;
-//                 }
-//                 // 若当前slot收到0个包
-//                 if(cnt_cur_pkt == 0){
-//                     aCar->slot_oneHop[slot] = -1;
-//                     aCar->slot_twoHop[slot] = -1;//??这个要更新吗??
-//                 }else if(cnt_cur_pkt == 1){//只收到一个pkt，则正常收包，update OHN 和THN, frontV, rearV 有问题
-//                     cnt_received++;
-//                     struct packet* pkt= (struct packet*)duallist_pick_tail(&(aCar->packets));
-//                     int index = pkt->slot, value = pkt->srcVehicle->id;
-//                     aCar->slot_oneHop[index] = value;//更新OHN时槽使用情况
-//                     for(int i = 0 ; i < SlotPerFrame; i++){
-//                         aCar->slot_twoHop[i] = pkt->slot_resource_oneHop_snapShot[i];//将pkt中携带的OHN信息更新到THN中，不考虑覆盖问题？？？？
-//                     }
-//                     // 将pkt指向的车更新到frontV, rearV
-//                     insertFrontRear(aCar, pkt);
-//                 }else{//有两个或以上的pkt，产生Collision
-//                     bItem = (struct Item*)aCar->packets.head;
-//                     while(bItem!=NULL){
-//                         struct packet* pkt= (struct packet*)bItem->datap;
-//                         if(pkt->slot == slot){
-//                             if(pkt->srcVehicle->slot_condition == 1){
-//                                 //printf("hello!!!!_____________________________________________!!!!!!\n");
-//                                 //printf("%d %d\n",aCar->id,pkt->srcVehicle->id);
-//                                 struct collision* coli = generate_collision(aCar,pkt->srcVehicle,1,slot);
-//                                 log_collision(coli);
-//                             }else if(pkt->srcVehicle->slot_condition == 2){
-//                                 //printf("hello!!!!_____________________________________________~~~~~~~\n");
-//                                 struct collision* coli = generate_collision(aCar,pkt->srcVehicle,2,slot);
-//                                 log_collision(coli);
-//                             }
-//                             printf("hello!!!!_____________________________________________\n");
-//                         }
-//                         bItem = bItem->next;  
-//                     }
-//                 }
-//                 printf("hello\n");
-//                 aItem = aItem->next;
-//             }
-//         }
-//     }
-// }
 
 // //if tCar is in front of aCar, return true, if not, return false.
 // bool IsFront(struct vehicle *aCar, struct vehicle *tCar){//先不考虑车道
@@ -434,38 +412,38 @@ double distance_between_vehicle(const struct vehicle* aCar, const struct vehicle
 // 	// }
 // }
 
-// //车辆aCar收到一个pkt，将pkt对应的车辆加入到Front或Rear中
-// void insertFrontRear(struct vehicle *aCar, struct packet *pkt){
-// 	if(aCar == NULL || pkt == NULL){
-// 		printf("insertFrontRear Error!\n");
-// 		exit(1);
-// 	}
-//     if(IsFront(aCar, pkt->srcVehicle)){//pkt来源于前面的一个车
-//         struct Item* newp = (struct Item*)malloc(sizeof(struct Item));
-// 	    newp->datap = pkt->srcVehicle;
-//         if(aCar->frontV.head == NULL){//若当前无frontV
-//             newp->next = NULL;
-//             newp->prev = newp;
-//             aCar->frontV.head = newp;
-//         }else{
-//            if(distance_between_vehicle(aCar, (struct vehicle*)aCar->frontV.head->datap) > distance_between_vehicle(aCar, pkt->srcVehicle))
-//                 aCar->frontV.head->datap = pkt->srcVehicle;//此包的车为最近的车
-//         }
+//车辆aCar收到一个pkt，将pkt对应的车辆加入到Front或Rear中
+void insertFrontRear(struct vehicle *aCar, struct packet *pkt){
+	if(aCar == NULL || pkt == NULL){
+		printf("insertFrontRear Error!\n");
+		exit(1);
+	}
+    if(IsFront(aCar, pkt->srcVehicle)){//pkt来源于前面的一个车
+        struct Item* newp = (struct Item*)malloc(sizeof(struct Item));
+	    newp->datap = pkt->srcVehicle;
+        if(aCar->frontV.head == NULL){//若当前无frontV
+            newp->next = NULL;
+            newp->prev = newp;
+            aCar->frontV.head = newp;
+        }else{
+           if(distance_between_vehicle(aCar, (struct vehicle*)aCar->frontV.head->datap) > distance_between_vehicle(aCar, pkt->srcVehicle))
+                aCar->frontV.head->datap = pkt->srcVehicle;//此包的车为最近的车
+        }
 
-//     }else{//pkt来源于后面的一个车
-//         struct Item* newp = (struct Item*)malloc(sizeof(struct Item));
-// 	    newp->datap = pkt->srcVehicle;
-//         if(aCar->rearV.head == NULL){//若当前无rearV
-//             newp->next = NULL;
-//             newp->prev = newp;
-//             aCar->rearV.head = newp;
-//         }else{
-//            if(distance_between_vehicle(aCar, (struct vehicle*)aCar->rearV.head->datap) > distance_between_vehicle(aCar, pkt->srcVehicle))
-//                 aCar->rearV.head->datap = pkt->srcVehicle;//此包的车为最近的车
-//         }
+    }else{//pkt来源于后面的一个车
+        struct Item* newp = (struct Item*)malloc(sizeof(struct Item));
+	    newp->datap = pkt->srcVehicle;
+        if(aCar->rearV.head == NULL){//若当前无rearV
+            newp->next = NULL;
+            newp->prev = newp;
+            aCar->rearV.head = newp;
+        }else{
+           if(distance_between_vehicle(aCar, (struct vehicle*)aCar->rearV.head->datap) > distance_between_vehicle(aCar, pkt->srcVehicle))
+                aCar->rearV.head->datap = pkt->srcVehicle;//此包的车为最近的车
+        }
 
-//     }
-// }
+    }
+}
 
 // //----------------------YX above---------------------//
 
