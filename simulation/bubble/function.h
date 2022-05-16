@@ -30,8 +30,8 @@ double distance_between_vehicle(const struct vehicle* aCar, const struct vehicle
 // void handle_receiver(struct Region* region, int slot);
 
 // struct packet * generate_packet(struct vehicle *aCar, int slot);
-// struct collision* generate_collision(struct vehicle *aCar, struct vehicle *bCar,  int type, int slot);
-// void log_collision(struct collision* coli);
+struct collision* generate_collision(struct vehicle *aCar, struct vehicle *bCar,  int type, int slot);
+void log_collision(struct collision* coli);
 // void log_packet(struct packet * aPkt, int slot);
 // bool IsFront(struct vehicle *aCar, struct vehicle *tCar);
 // void insertFrontRear(struct vehicle *aCar, struct packet *pkt);
